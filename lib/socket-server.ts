@@ -278,7 +278,9 @@ export class SocketServer {
             return;
           }
 
+          // Broadcast both settings_updated and room_updated to keep all clients in sync
           this.io.to(data.roomId).emit('settings_updated', { settings: room.settings });
+          this.io.to(data.roomId).emit('room_updated', { roomState: room });
         } catch (error) {
           console.error('Error updating settings:', error);
           socket.emit('error', { code: 'UPDATE_SETTINGS_FAILED', message: 'Failed to update settings' });

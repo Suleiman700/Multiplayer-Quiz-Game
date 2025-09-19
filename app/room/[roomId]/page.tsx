@@ -241,6 +241,13 @@ function LobbyView({ room, player, socket }: any) {
     }
   }, [player?.avatar]);
 
+  // Keep local settings in sync with server updates (non-hosts see changes live)
+  useEffect(() => {
+    if (room?.settings) {
+      setSettings(room.settings);
+    }
+  }, [room?.settings]);
+
   // Load question counts when component mounts
   useEffect(() => {
     if (socket) {
