@@ -187,7 +187,19 @@ function RoomContent() {
   // Prefer server status if available (helps after refresh)
   const serverStatus = (room as any)?.game?.status as 'waiting' | 'running' | 'finished' | undefined;
 
-  if (serverStatus === 'running') {
+  // If either server or client state indicates the game is finished, show results immediately
+  if (serverStatus === 'finished' || gameState === 'finished' || !!gameResults) {
+    return (
+      <ResultsView
+        room={room}
+        gameResults={gameResults}
+        onPlayAgain={() => socket && room && socket.emit('play_again', { roomId: room.roomId })}
+      />
+    );
+  }
+
+  // If either server or client state indicates the game is running, show the game view
+  if (serverStatus === 'running' || gameState === 'playing') {
     return (
       <GameView
         room={room}
@@ -204,37 +216,10 @@ function RoomContent() {
         timerFreshQuestion={timerFreshQuestion}
       />
     );
-  }
-
-  if (serverStatus === 'finished') {
-    return <ResultsView room={room} gameResults={gameResults} onPlayAgain={() => socket && room && socket.emit('play_again', { roomId: room.roomId })} />;
   }
 
   if (gameState === 'lobby') {
     return <LobbyView room={room} player={player} socket={socket} />;
-  }
-
-  if (gameState === 'playing') {
-    return (
-      <GameView
-        room={room}
-        player={player}
-        socket={socket}
-        currentQuestion={currentQuestion}
-        timeLeft={timeLeft}
-        selectedAnswer={selectedAnswer}
-        setSelectedAnswer={setSelectedAnswer}
-        answerResult={answerResult}
-        roundResults={roundResults}
-        showResults={showResults}
-        answeredThisQuestion={answeredThisQuestion}
-        timerFreshQuestion={timerFreshQuestion}
-      />
-    );
-  }
-
-  if (gameState === 'finished') {
-    return <ResultsView room={room} gameResults={gameResults} onPlayAgain={() => setGameState('lobby')} />;
   }
 
   return null;
@@ -1121,7 +1106,22 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
 function ResultsView({ room, gameResults, onPlayAgain }: any) {
   const router = useRouter();
 
-  if (!gameResults) return null;
+  if (!gameResults) {
+    return (
+      <div className="min-h-screen p-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <h1 className="text-4xl font-bold gradient-text mb-8">Game Complete!</h1>
+          <div className="card mb-8">
+            <h2 className="text-2xl font-semibold mb-6">Preparing summary…</h2>
+            <div className="flex items-center justify-center py-8">
+              <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <p className="text-gray-600">Finalizing results from all players…</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-4">

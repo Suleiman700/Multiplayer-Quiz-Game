@@ -478,6 +478,12 @@ export class SocketServer {
     const gameResults = await this.gameLogic.endGame(roomId);
     if (!gameResults) return;
 
+    // Also emit updated room state so clients receive game.status = 'finished'
+    const room = this.roomManager.getRoom(roomId);
+    if (room) {
+      this.io.to(roomId).emit('room_updated', { roomState: room });
+    }
+
     this.io.to(roomId).emit('game_over', gameResults);
     console.log(`Game ended in room ${roomId}`);
   }
