@@ -562,14 +562,21 @@ function CreateRoomContent() {
                 (formData.usePassword && !formData.password.trim())
               }
               style={{
-                borderRadius: '24px',
-                fontSize: '20px',
-                fontWeight: 'bold',
-                height: '64px',
-                minWidth: '200px',
-                background: 'linear-gradient(135deg, #FF6B6B, #4ECDC4)',
-                border: 'none',
-                boxShadow: '0 8px 24px rgba(255, 107, 107, 0.3)'
+                borderRadius: '16px',
+                fontSize: '22px',
+                fontWeight: 800,
+                height: '68px',
+                minWidth: '240px',
+                textTransform: 'uppercase',
+                letterSpacing: '1.5px',
+                color: '#FFFFFF',
+                background: 'linear-gradient(135deg, #8B5CF6 0%, #06B6D4 100%)',
+                border: '3px solid #000000',
+                boxShadow: '6px 6px 0px #000000',
+                textShadow: '0 1px 0 rgba(0, 0, 0, 0.25)',
+                transition: 'transform 0.08s ease-in-out, box-shadow 0.08s ease-in-out, filter 0.2s ease',
+                filter: 'drop-shadow(0 0 12px rgba(139, 92, 246, 0.35))',
+                cursor: 'pointer'
               }}
               icon={!isCreating && <PlayCircleOutlined />}
               className="cartoon-button pulse-glow wiggle-on-hover"
@@ -579,29 +586,41 @@ function CreateRoomContent() {
           </div>
 
           {/* Preview */}
-          <div className="card bg-gray-50">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Room Preview</h3>
-            <div className="grid md:grid-cols-2 gap-4 text-sm">
+          <div className="card" style={{
+            background: '#1F2937',
+            border: '3px solid #8B5CF6',
+            boxShadow: '6px 6px 0px #000000',
+            padding: '24px',
+            borderRadius: '12px',
+            marginBottom: '32px'
+          }}>
+            <h3 className="text-lg font-semibold text-gray-200 mb-4" style={{
+              color: '#E5E7EB',
+              fontSize: '20px',
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}>Room Preview</h3>
+            <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-500">
               <div>
-                <span className="font-medium text-gray-700">Room:</span> {formData.roomName || 'Untitled Room'}
+                <span className="font-medium text-gray-200">Room:</span> {formData.roomName || 'Untitled Room'}
               </div>
               <div>
-                <span className="font-medium text-gray-700">Host:</span> {formData.hostName || 'Unknown'}
+                <span className="font-medium text-gray-200">Host:</span> {formData.hostName || 'Unknown'}
               </div>
               <div>
-                <span className="font-medium text-gray-700">Max Players:</span> {formData.maxPlayers}
+                <span className="font-medium text-gray-200">Max Players:</span> {formData.maxPlayers}
               </div>
               <div>
-                <span className="font-medium text-gray-700">Password:</span> {formData.usePassword ? 'Yes' : 'No'}
+                <span className="font-medium text-gray-200">Password:</span> {formData.usePassword ? 'Yes' : 'No'}
               </div>
               <div>
-                <span className="font-medium text-gray-700">Questions:</span> {settings.numQuestions}
+                <span className="font-medium text-gray-200">Questions:</span> {settings.numQuestions}
               </div>
               <div>
-                <span className="font-medium text-gray-700">Time per Question:</span> {settings.timePerQuestionSec}s
+                <span className="font-medium text-gray-200">Time per Question:</span> {settings.timePerQuestionSec}s
               </div>
               <div className="md:col-span-2">
-                <span className="font-medium text-gray-700">Categories:</span>{' '}
+                <span className="font-medium text-gray-200">Categories:</span>{' '}
                 {settings.category.length > 0 
                   ? settings.category.map(c => categories.find(cat => cat.id === c)?.name).join(', ')
                   : 'None selected'
