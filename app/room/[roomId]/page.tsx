@@ -38,6 +38,7 @@ function RoomContent() {
   const [gameResults, setGameResults] = useState<GameOverResponse | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [answeredThisQuestion, setAnsweredThisQuestion] = useState<Set<string>>(new Set());
+  const [timerFreshQuestion, setTimerFreshQuestion] = useState(false);
 
   // Reconnect to room if we have session token but no room
   useEffect(() => {
@@ -81,14 +82,26 @@ function RoomContent() {
       setRoundResults(null);
       setShowResults(false);
       setAnsweredThisQuestion(new Set());
+      // Mark timer as freshly reset so we can avoid width transition on this frame
+      setTimerFreshQuestion(true);
     };
 
     const handleTimerTick = (data: { timeLeft: number }) => {
+      // First tick after a new question: disable the fresh flag to re-enable animation
+      if (timerFreshQuestion) setTimerFreshQuestion(false);
       setTimeLeft(data.timeLeft);
     };
 
     const handleAnswerReceived = (data: AnswerResultResponse) => {
       setAnswerResult(data);
+      // Mark current player as answered immediately (optimistic UI)
+      if (player?.socketId) {
+        setAnsweredThisQuestion(prev => {
+          const next = new Set(prev);
+          next.add(player.socketId!);
+          return next;
+        });
+      }
     };
 
     const handleRoundResults = (data: RoundResultsResponse) => {
@@ -161,6 +174,7 @@ function RoomContent() {
         roundResults={roundResults}
         showResults={showResults}
         answeredThisQuestion={answeredThisQuestion}
+        timerFreshQuestion={timerFreshQuestion}
       />
     );
   }
@@ -180,6 +194,13 @@ function LobbyView({ room, player, socket }: any) {
   const isHost = player && room.hostId === player.sessionToken;
   const avatarOptions = ['🐱','🐶','🦊','🐼','🐵','🐸','🐯','🐰','🐨','🦁','🐻','🐹'];
   const [selectedAvatar, setSelectedAvatar] = useState<string>(player?.avatar || avatarOptions[0]);
+
+  // Keep local selection in sync with server-updated player data
+  useEffect(() => {
+    if (player?.avatar && player.avatar !== selectedAvatar) {
+      setSelectedAvatar(player.avatar);
+    }
+  }, [player?.avatar]);
 
   // Load question counts when component mounts
   useEffect(() => {
@@ -809,7 +830,7 @@ function LobbyView({ room, player, socket }: any) {
 }
 
 // Game Component
-function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAnswer, setSelectedAnswer, answerResult, roundResults, showResults, answeredThisQuestion }: any) {
+function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAnswer, setSelectedAnswer, answerResult, roundResults, showResults, answeredThisQuestion, timerFreshQuestion }: any) {
   // Detect if a string contains RTL characters (Arabic, Hebrew, Syriac, etc.)
   const isRTLText = (text: string) => /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\u0700-\u074F\u07C0-\u07FF\uFB50-\uFDFF\uFE70-\uFEFF]/u.test(text);
   const handleAnswerSelect = (choiceIndex: number) => {
@@ -841,6 +862,7 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
         {/* Timer */}
         <div className="mb-8">
           <div
+            key={`q-${currentQuestion.questionIndex}`}
             className="timer-bar"
             style={{
               height: '20px',
@@ -858,7 +880,7 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
                 height: '100%',
                 background: 'linear-gradient(90deg, #8B5CF6 0%, #06B6D4 100%)',
                 borderRight: '3px solid #000',
-                transition: 'width 1s linear',
+                transition: timerFreshQuestion ? 'none' : 'width 1s linear',
               }}
             ></div>
           </div>

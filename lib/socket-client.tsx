@@ -120,9 +120,15 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     newSocket.on('player_updated', (data) => {
       console.log('Received player_updated event:', data);
       setRoom(data.roomState);
-      if (player && data.player.socketId === player.socketId) {
-        console.log('Updating current player:', data.player);
-        setPlayer(data.player);
+      // Use sessionToken or stored token to identify the current player reliably
+      const storedToken = localStorage.getItem('quiz_session_token');
+      const tokenToUse = sessionToken || storedToken;
+      if (tokenToUse) {
+        const updatedPlayer = data.roomState.players.find((p: Player) => p.sessionToken === tokenToUse);
+        if (updatedPlayer) {
+          console.log('Updating current player by token:', updatedPlayer);
+          setPlayer(updatedPlayer);
+        }
       }
     });
 
