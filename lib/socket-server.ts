@@ -2,6 +2,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import { RoomManager } from './room-manager';
 import { GameLogic } from './game-logic';
+import { v4 as uuidv4 } from 'uuid';
 import {
   CreateRoomData,
   JoinRoomData,
@@ -18,6 +19,7 @@ export class SocketServer {
   private gameLogic: GameLogic;
   private questionTimers: Map<string, NodeJS.Timeout> = new Map();
   private timerTickIntervals: Map<string, NodeJS.Timeout> = new Map();
+  private botAnswerTimers: Map<string, NodeJS.Timeout[]> = new Map();
 
   constructor(httpServer: HTTPServer) {
     this.io = new SocketIOServer(httpServer, {
@@ -95,6 +97,12 @@ export class SocketServer {
             clearInterval(tickInterval);
             this.timerTickIntervals.delete(data.roomId);
           }
+          // Clear any bot timers
+          const botTimers = this.botAnswerTimers.get(data.roomId);
+          if (botTimers) {
+            botTimers.forEach(t => clearTimeout(t));
+            this.botAnswerTimers.delete(data.roomId);
+          }
 
           // Remove disconnected players before resetting to lobby
           const wasHostPresent = room.players.some(p => p.sessionToken === room.hostId && p.connected);
@@ -111,6 +119,7 @@ export class SocketServer {
           // Inform clients
           this.io.to(data.roomId).emit('game_reset', { roomState: room });
           this.io.to(data.roomId).emit('room_updated', { roomState: room });
+          console.log('[set_bots] room', data.roomId, 'now has bots:', room.players.filter(p => p.isBot).length);
         } catch (error) {
           console.error('Error resetting game:', error);
           socket.emit('error', { code: 'RESET_FAILED', message: 'Failed to reset game' });
@@ -341,6 +350,71 @@ export class SocketServer {
         }
       });
 
+      // Host sets number of bots (0-3) in lobby
+      socket.on('set_bots', (data: { roomId: string; count: number }) => {
+        try {
+          const room = this.roomManager.getRoom(data.roomId);
+          if (!room) {
+            socket.emit('error', { code: 'ROOM_NOT_FOUND', message: 'Room not found' });
+            return;
+          }
+          const requester = room.players.find(p => p.socketId === socket.id);
+          if (!requester || room.hostId !== requester.sessionToken) {
+            socket.emit('error', { code: 'NOT_HOST', message: 'Only host can configure bots' });
+            return;
+          }
+          if (room.game && room.game.status === 'running') {
+            socket.emit('error', { code: 'GAME_RUNNING', message: 'Cannot change bots while game is running' });
+            return;
+          }
+          const requested = Math.max(0, Math.min(3, Math.floor(data.count)));
+          const humanConnected = room.players.filter(p => !p.isBot && p.connected).length;
+          const capacity = Math.max(0, room.maxPlayers - humanConnected);
+          const count = Math.min(requested, capacity);
+          console.log('[set_bots] requested:', requested, 'connected humans:', humanConnected, 'capacity:', capacity, 'applying bots:', count);
+          const currentBots = room.players.filter(p => p.isBot);
+          // Remove extra bots
+          if (currentBots.length > count) {
+            const toRemove = currentBots.slice(count);
+            toRemove.forEach(bot => {
+              const idx = room.players.findIndex(p => p.sessionToken === bot.sessionToken);
+              if (idx !== -1) room.players.splice(idx, 1);
+            });
+          }
+          // Add missing bots
+          const names = ['ALPHA', 'BRAVO', 'CHARLIE', 'DELTA', 'ECHO', 'FOXTROT', 'NOVA', 'ORION'];
+          const avatars = ['🤖','🛰️','🛸','🔧','🧠','🦾','🦿','🎯'];
+          const newlyAdded: any[] = [];
+          while (room.players.filter(p => p.isBot).length < count) {
+            const id = 'bot-' + uuidv4();
+            const name = names[Math.floor(Math.random() * names.length)] + '-' + (Math.floor(Math.random() * 90) + 10);
+            const avatar = avatars[Math.floor(Math.random() * avatars.length)];
+            const botPlayer = {
+              socketId: id,
+              name,
+              score: 0,
+              ready: true,
+              connected: true,
+              lastSeen: Date.now(),
+              sessionToken: id,
+              avatar,
+              isBot: true,
+            } as any;
+            room.players.push(botPlayer);
+            newlyAdded.push(botPlayer);
+          }
+          this.io.to(data.roomId).emit('room_updated', { roomState: room });
+          newlyAdded.forEach((p) => {
+            this.io.to(data.roomId).emit('player_joined', { player: p, roomState: room });
+          });
+          const appliedCount = room.players.filter(p => p.isBot).length;
+          this.io.to(data.roomId).emit('bots_updated', { appliedCount, capacity });
+        } catch (error) {
+          console.error('Error setting bots:', error);
+          socket.emit('error', { code: 'SET_BOTS_FAILED', message: 'Failed to configure bots' });
+        }
+      });
+
       socket.on('answer', (data: AnswerData) => {
         try {
           const result = this.gameLogic.submitAnswer(
@@ -508,6 +582,9 @@ export class SocketServer {
 
       // Send timer ticks (optional - for better UX)
       this.startTimerTicks(roomId, room.settings.timePerQuestionSec, room.game!.currentQuestionIndex);
+
+      // Schedule bot answers for this question
+      this.simulateBotsForQuestion(roomId);
     }
   }
 
@@ -583,6 +660,53 @@ export class SocketServer {
 
     this.io.to(roomId).emit('game_over', gameResults);
     console.log(`Game ended in room ${roomId}`);
+  }
+
+  // Simulate bot answers with random delays and accuracy
+  private simulateBotsForQuestion(roomId: string): void {
+    const room = this.roomManager.getRoom(roomId);
+    if (!room || !room.game) return;
+    const bots = room.players.filter(p => p.isBot);
+    if (bots.length === 0) return;
+
+    // Clear previous bot timers for safety
+    const existing = this.botAnswerTimers.get(roomId);
+    if (existing) { existing.forEach(t => clearTimeout(t)); }
+    const timers: NodeJS.Timeout[] = [];
+
+    const qIndex = room.game.currentQuestionIndex;
+    const totalMs = room.settings.timePerQuestionSec * 1000;
+    const correctIdx = room.game.questions[qIndex].correctIndex;
+
+    bots.forEach((bot) => {
+      // Random delay between 600ms and totalMs-400ms
+      const delay = Math.max(600, Math.min(totalMs - 400, Math.floor(Math.random() * (totalMs - 800)) + 600));
+      const t = setTimeout(() => {
+        const r = this.roomManager.getRoom(roomId);
+        if (!r || !r.game || r.game.currentQuestionIndex !== qIndex) return; // Question advanced or game ended
+        // 60%-80% chance to be correct
+        const accuracy = 0.6 + Math.random() * 0.2;
+        let choiceIndex = correctIdx;
+        if (Math.random() > accuracy) {
+          const choices = r.game.questions[qIndex].choices.length;
+          const wrongs = Array.from({ length: choices }, (_, i) => i).filter(i => i !== correctIdx);
+          choiceIndex = wrongs[Math.floor(Math.random() * wrongs.length)];
+        }
+        const res = this.gameLogic.submitAnswer(roomId, bot.socketId, qIndex, choiceIndex, Date.now());
+        if (res.success) {
+          // Announce answer for UI checkmarks and update scores
+          this.io.to(roomId).emit('player_answered', { socketId: bot.socketId, questionIndex: qIndex });
+          this.io.to(roomId).emit('room_updated', { roomState: r });
+          // If all players answered, end question early
+          if (this.gameLogic.checkAllPlayersAnswered(roomId)) {
+            this.endQuestion(roomId);
+          }
+        }
+      }, delay);
+      timers.push(t);
+    });
+
+    this.botAnswerTimers.set(roomId, timers);
   }
 
   private handlePlayerDisconnect(socketId: string): void {

@@ -7,6 +7,7 @@ export interface Player {
   lastSeen: number;
   sessionToken?: string;
   avatar?: string;
+  isBot?: boolean;
 }
 
 export interface GameSettings {

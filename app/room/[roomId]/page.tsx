@@ -251,6 +251,7 @@ function LobbyView({ room, player, socket }: any) {
   const [selectedAvatar, setSelectedAvatar] = useState<string>(player?.avatar || avatarOptions[0]);
   const [inviteOpen, setInviteOpen] = useState(false);
   const inviteUrl = typeof window !== 'undefined' ? `${window.location.origin}/room/${room.roomId}` : `https://example.com/room/${room.roomId}`;
+  const botsCount = room.players.filter((p: any) => p.isBot).length;
 
   // Keep local selection in sync with server-updated player data
   useEffect(() => {
@@ -265,6 +266,16 @@ function LobbyView({ room, player, socket }: any) {
       setSettings(room.settings);
     }
   }, [room?.settings]);
+
+  // Feedback for bot updates
+  useEffect(() => {
+    if (!socket) return;
+    const handler = (data: { appliedCount: number; capacity: number }) => {
+      message.success(`Bots set to ${data.appliedCount} (capacity ${data.capacity})`);
+    };
+    socket.on('bots_updated', handler);
+    return () => { socket.off('bots_updated', handler); };
+  }, [socket]);
 
   // Load question counts when component mounts
   useEffect(() => {
@@ -518,6 +529,18 @@ function LobbyView({ room, player, socket }: any) {
                       }}>
                         {p.name}
                       </Text>
+                      {p.isBot && (
+                        <Badge style={{
+                          background: '#4B5563',
+                          color: 'white',
+                          border: '1px solid #000000',
+                          fontSize: '10px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}>
+                          BOT
+                        </Badge>
+                      )}
                       {room.hostId === p.sessionToken && (
                         <Badge style={{
                           background: '#8B5CF6',
@@ -827,7 +850,7 @@ function LobbyView({ room, player, socket }: any) {
                           display: 'block',
                           marginBottom: '8px'
                         }}>
-                          QUESTIONS
+                          NUMBER OF QUESTIONS
                         </Text>
                         <Select
                           value={settings.numQuestions}
@@ -915,6 +938,33 @@ function LobbyView({ room, player, socket }: any) {
                           </Space>
                         </Radio.Group>
                       </div>
+
+                      {/* Bots selector (Host only) */}
+                      <div>
+                        <Text style={{
+                          color: '#F9FAFB',
+                          fontSize: '14px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '1px',
+                          fontWeight: 'bold',
+                          display: 'block',
+                          marginBottom: '8px'
+                        }}>
+                          BOTS
+                        </Text>
+                        <Select
+                          value={botsCount}
+                          onChange={(value) => socket && socket.emit('set_bots', { roomId: room.roomId, count: value })}
+                          disabled={!isHost}
+                          style={{ width: '100%' }}
+                          className="retro-select"
+                        >
+                          <Option value={0}>0</Option>
+                          <Option value={1}>1</Option>
+                          <Option value={2}>2</Option>
+                          <Option value={3}>3</Option>
+                        </Select>
+                      </div>
                     </Space>
                   </Col>
                 </Row>
@@ -976,6 +1026,28 @@ function LobbyView({ room, player, socket }: any) {
                     <div className="card" style={{ background: '#111827', border: '3px solid #06B6D4', boxShadow: '3px 3px 0px #000' }}>
                       <div className="text-sm text-gray-300">Scoring</div>
                       <div className="text-2xl font-bold text-primary-500">{settings.scoring === 'base' ? 'Base' : 'Time Bonus'}</div>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={{ color: '#F9FAFB', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>
+                        Bots
+                      </Text>
+                      {isHost ? (
+                        <Select
+                          value={botsCount}
+                          onChange={(value) => socket && socket.emit('set_bots', { roomId: room.roomId, count: value })}
+                          style={{ width: 120 }}
+                          className="retro-select"
+                        >
+                          <Option value={0}>0</Option>
+                          <Option value={1}>1</Option>
+                          <Option value={2}>2</Option>
+                          <Option value={3}>3</Option>
+                        </Select>
+                      ) : (
+                        <Badge style={{ background: '#4B5563', color: '#D1D5DB', border: '1px solid #6B7280', fontSize: '10px' }}>{botsCount} BOTS</Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1288,6 +1360,9 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
                   <div className="flex items-center space-x-3">
                     <span className="font-bold text-lg">#{index + 1}</span>
                     <span className="font-medium">{p.name}</span>
+                    {p.isBot && (
+                      <span style={{ fontSize: 10, background: '#4B5563', color: '#fff', border: '1px solid #000', padding: '2px 6px', borderRadius: 6 }}>BOT</span>
+                    )}
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="font-bold text-lg">{p.score}</span>
