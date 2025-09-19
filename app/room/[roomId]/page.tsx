@@ -765,16 +765,48 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
     <div className="min-h-screen p-4">
       <div className="max-w-4xl mx-auto">
         {/* Timer */}
-        <div className="mb-6">
-          <div className="timer-bar">
-            <div 
+        <div className="mb-8">
+          <div
+            className="timer-bar"
+            style={{
+              height: '20px',
+              background: '#111827',
+              border: '3px solid #8B5CF6',
+              borderRadius: '12px',
+              boxShadow: '4px 4px 0px #000',
+              overflow: 'hidden',
+            }}
+          >
+            <div
               className="timer-fill"
-              style={{ width: `${(timeLeft / currentQuestion.timePerQuestionSec) * 100}%` }}
+              style={{
+                width: `${(timeLeft / currentQuestion.timePerQuestionSec) * 100}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #8B5CF6 0%, #06B6D4 100%)',
+                borderRight: '3px solid #000',
+                transition: 'width 1s linear',
+              }}
             ></div>
           </div>
-          <div className="text-center mt-2">
-            <span className="text-2xl font-bold text-gray-200">{timeLeft}s</span>
-          </div>
+          {/* <div className="text-center mt-2">
+            <span
+              className="font-bold"
+              style={{
+                display: 'inline-block',
+                background: '#1F2937',
+                color: '#F9FAFB',
+                border: '3px solid #06B6D4',
+                boxShadow: '3px 3px 0px #000',
+                borderRadius: '12px',
+                padding: '6px 12px',
+                letterSpacing: '1px',
+                fontSize: '20px',
+                fontFamily: '"Courier New", monospace',
+              }}
+            >
+              ⏱️ {timeLeft}s
+            </span>
+          </div> */}
         </div>
 
         {/* Question */}
