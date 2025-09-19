@@ -94,9 +94,6 @@ const retroTheme = {
       borderRadius: 4,
       boxShadow: '6px 6px 0px #000000',
     },
-    Progress: {
-      strokeLinecap: 'square',
-    },
   },
 }
 

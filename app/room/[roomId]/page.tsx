@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Button, Card, Select, Radio, Checkbox, Typography, Space, Row, Col, Badge, Alert, Popconfirm } from 'antd';
+import { Button, Card, Select, Radio, Checkbox, Typography, Space, Row, Col, Badge, Alert, Popconfirm, Modal, QRCode, message } from 'antd';
 import { ArrowLeftOutlined, UserOutlined, SettingOutlined, PlayCircleOutlined, CheckCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { SocketProvider, useSocket } from '@/lib/socket-client';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { NotificationToast } from '@/components/NotificationToast';
 import { GameSettings, NewQuestionResponse, AnswerResultResponse, RoundResultsResponse, GameOverResponse } from '@/types/game';
+import { uiConfig } from '@/lib/config';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -39,6 +40,7 @@ function RoomContent() {
   const [showResults, setShowResults] = useState(false);
   const [answeredThisQuestion, setAnsweredThisQuestion] = useState<Set<string>>(new Set());
   const [timerFreshQuestion, setTimerFreshQuestion] = useState(false);
+  const [countdownNumber, setCountdownNumber] = useState<number>(0);
 
   // Auto-clear the fresh flag on the next event loop tick so subsequent ticks animate
   useEffect(() => {
@@ -79,6 +81,8 @@ function RoomContent() {
       setAnswerResult(null);
       setRoundResults(null);
       setShowResults(false);
+      // Start pre-game countdown overlay (may overlap first question start)
+      setCountdownNumber(3);
     };
 
     const handleNewQuestion = (data: NewQuestionResponse) => {
@@ -92,6 +96,8 @@ function RoomContent() {
       setAnsweredThisQuestion(new Set());
       // Mark timer as freshly reset so we can avoid width transition on this frame
       setTimerFreshQuestion(true);
+      // Hide countdown overlay when question arrives
+      setCountdownNumber(0);
     };
 
     const handleTimerTick = (data: { timeLeft: number; questionIndex?: number }) => {
@@ -116,6 +122,8 @@ function RoomContent() {
       setShowResults(true);
       // Auto-hide results after 3 seconds
       setTimeout(() => setShowResults(false), 3000);
+      // Show 3-2-1 countdown overlay during the intermission
+      setCountdownNumber(3);
     };
 
     const handleGameOver = (data: GameOverResponse) => {
@@ -166,6 +174,13 @@ function RoomContent() {
     };
   }, [socket]);
 
+  // Countdown decrementer
+  useEffect(() => {
+    if (countdownNumber <= 0) return;
+    const t = setTimeout(() => setCountdownNumber((n) => (n > 0 ? n - 1 : 0)), 1000);
+    return () => clearTimeout(t);
+  }, [countdownNumber]);
+
   // If room indicates a running game (after reconnect), switch UI to playing immediately
   useEffect(() => {
     if (room && (room as any).game && (room as any).game.status === 'running') {
@@ -214,6 +229,7 @@ function RoomContent() {
         showResults={showResults}
         answeredThisQuestion={answeredThisQuestion}
         timerFreshQuestion={timerFreshQuestion}
+        countdownNumber={countdownNumber}
       />
     );
   }
@@ -233,6 +249,8 @@ function LobbyView({ room, player, socket }: any) {
   const isHost = player && room.hostId === player.sessionToken;
   const avatarOptions = ['🐱','🐶','🦊','🐼','🐵','🐸','🐯','🐰','🐨','🦁','🐻'];
   const [selectedAvatar, setSelectedAvatar] = useState<string>(player?.avatar || avatarOptions[0]);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const inviteUrl = typeof window !== 'undefined' ? `${window.location.origin}/room/${room.roomId}` : `https://example.com/room/${room.roomId}`;
 
   // Keep local selection in sync with server-updated player data
   useEffect(() => {
@@ -384,6 +402,22 @@ function LobbyView({ room, player, socket }: any) {
             >
               LEAVE ROOM
             </Button>
+            <Button
+              onClick={() => setInviteOpen(true)}
+              style={{
+                background: '#374151',
+                borderColor: '#6B7280',
+                color: '#F9FAFB',
+                textTransform: 'uppercase',
+                fontWeight: 'bold',
+                position: 'absolute',
+                right: '24px',
+                top: '24px'
+              }}
+              className="retro-button"
+            >
+              INVITE
+            </Button>
             <div style={{
               background: '#1F2937',
               border: '3px solid #8B5CF6',
@@ -410,6 +444,21 @@ function LobbyView({ room, player, socket }: any) {
             </div>
           </div>
         </div>
+
+        <Modal
+          open={inviteOpen}
+          onCancel={() => setInviteOpen(false)}
+          footer={null}
+          title="Invite Players"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            <QRCode value={inviteUrl} size={200} />
+            <div style={{ wordBreak: 'break-all', textAlign: 'center', color: '#D1D5DB' }}>{inviteUrl}</div>
+            <Space>
+              <Button onClick={() => { navigator.clipboard.writeText(inviteUrl); message.success('Invite link copied'); }} type="primary">Copy Link</Button>
+            </Space>
+          </div>
+        </Modal>
 
         <Row gutter={[32, 32]}>
           {/* Players List - Retro Style */}
@@ -940,8 +989,36 @@ function LobbyView({ room, player, socket }: any) {
 }
 
 // Game Component
-function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAnswer, setSelectedAnswer, answerResult, roundResults, showResults, answeredThisQuestion, timerFreshQuestion }: any) {
+function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAnswer, setSelectedAnswer, answerResult, roundResults, showResults, answeredThisQuestion, timerFreshQuestion, countdownNumber }: any) {
   const isHost = player && room.hostId === player.sessionToken;
+  // Sounds
+  const soundEnabled = uiConfig.enableSounds !== false; // default on
+  const audioCtxRef = React.useRef<AudioContext | null>(null);
+  const lastTickRef = React.useRef<number | null>(null);
+  const ensureCtx = () => {
+    if (!audioCtxRef.current) {
+      try { audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)(); } catch {}
+    }
+    return audioCtxRef.current;
+  };
+  const playTone = (freq: number, durationMs: number, type: OscillatorType = 'sine', gain = 0.05) => {
+    if (!soundEnabled) return;
+    const ctx = ensureCtx();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gainNode.gain.value = gain;
+    osc.connect(gainNode).connect(ctx.destination);
+    osc.start();
+    setTimeout(() => { try { osc.stop(); } catch {} }, durationMs);
+  };
+  const playTick = () => playTone(900, 100, 'square', 0.04);
+  const playCorrect = () => { playTone(800, 120, 'sine'); setTimeout(() => playTone(1200, 150, 'sine'), 130); };
+  const playIncorrect = () => playTone(200, 200, 'sawtooth', 0.06);
+  const playStart = () => { playTone(600, 100, 'sine'); setTimeout(() => playTone(900, 120, 'sine'), 120); };
+  const playEnd = () => playTone(500, 400, 'triangle', 0.06);
   // Detect if a string contains RTL characters (Arabic, Hebrew, Syriac, etc.)
   const isRTLText = (text: string) => /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\u0700-\u074F\u07C0-\u07FF\uFB50-\uFDFF\uFE70-\uFEFF]/u.test(text);
   const handleAnswerSelect = (choiceIndex: number) => {
@@ -955,6 +1032,29 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
       timestamp: Date.now(),
     });
   };
+
+  // Play ticks in last 3 seconds
+  useEffect(() => {
+    if (!soundEnabled || !currentQuestion) return;
+    if (timeLeft <= 3 && timeLeft > 0 && lastTickRef.current !== timeLeft) {
+      lastTickRef.current = timeLeft;
+      playTick();
+    }
+  }, [timeLeft, currentQuestion, soundEnabled]);
+
+  // Play correct/incorrect on answer result
+  useEffect(() => {
+    if (!soundEnabled || !answerResult) return;
+    if (answerResult.isCorrect) playCorrect(); else playIncorrect();
+  }, [answerResult, soundEnabled]);
+
+  // Play start sound on first question
+  useEffect(() => {
+    if (!soundEnabled || !currentQuestion) return;
+    if (currentQuestion.questionIndex === 0 && timeLeft === currentQuestion.timePerQuestionSec) {
+      playStart();
+    }
+  }, [currentQuestion, soundEnabled]);
 
   if (!currentQuestion) {
     return (
@@ -986,6 +1086,23 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
             </Popconfirm>
           </div>
         )}
+        {/* Countdown Overlay */}
+        {countdownNumber > 0 && (
+          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 50 }}>
+            <div style={{
+              width: 160,
+              height: 160,
+              borderRadius: 16,
+              background: 'rgba(17,24,39,0.85)',
+              border: '4px solid #8B5CF6',
+              boxShadow: '6px 6px 0px #000',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <span style={{ fontSize: 72, fontWeight: 800, color: '#F9FAFB' }}>{countdownNumber}</span>
+            </div>
+          </div>
+        )}
+
         {/* Timer */}
         <div className="mb-8">
           <div
