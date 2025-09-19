@@ -311,6 +311,14 @@ export class SocketServer {
             return;
           }
 
+          // Prune disconnected players before starting a new game
+          room.players = room.players.filter(p => p.connected);
+          if (!room.players.some(p => p.sessionToken === room.hostId) && room.players.length > 0) {
+            room.hostId = room.players[0].sessionToken!;
+          }
+          // Broadcast pruned room state so clients update UI
+          this.io.to(data.roomId).emit('room_updated', { roomState: room });
+
           const result = await this.gameLogic.startGame(data.roomId);
           if (!result.success) {
             socket.emit('start_failed', { code: result.error, message: this.getErrorMessage(result.error!) });

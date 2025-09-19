@@ -1086,6 +1086,7 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
               justifyContent: 'center'
             }}>
               {room.players
+                .filter((p: any) => p.connected)
                 .map((p: any) => {
                   const answered = answeredThisQuestion.has(p.socketId);
                   const avatarLabel = p.avatar || '🙂';
@@ -1124,15 +1125,6 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
                           color: '#fff'
                         }}>
                           ✓
-                        </div>
-                      )}
-                      {!p.connected && (
-                        <div style={{ position: 'absolute', top: '-6px', right: '-6px' }}>
-                          <div className="connection-dots">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                          </div>
                         </div>
                       )}
                       <div style={{ fontSize: '10px', marginTop: '4px', color: '#D1D5DB', maxWidth: '56px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
