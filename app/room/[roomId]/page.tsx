@@ -134,10 +134,12 @@ function RoomContent() {
   }
 
   if (gameState === 'playing') {
+    // Always get latest room/player from context for real-time updates
+    const { room: liveRoom, player: livePlayer } = useSocket();
     return (
       <GameView
-        room={room}
-        player={player}
+        room={liveRoom}
+        player={livePlayer}
         socket={socket}
         currentQuestion={currentQuestion}
         timeLeft={timeLeft}
