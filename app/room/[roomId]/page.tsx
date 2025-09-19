@@ -292,7 +292,10 @@ function LobbyView({ room, player, socket }: any) {
                 borderColor: '#6B7280',
                 color: '#F9FAFB',
                 textTransform: 'uppercase',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                position: 'absolute',
+                left: '24px',
+                top: '24px'
               }}
               className="retro-button"
               icon={<ArrowLeftOutlined />}
@@ -775,7 +778,7 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
         </div>
 
         {/* Question */}
-        <div className="card mb-6">
+        <div className="card mb-6" style={{ background: '#1F2937', border: '3px solid #8B5CF6', boxShadow: '4px 4px 0px #000', borderRadius: '16px', color: '#F9FAFB' }}>
           <div className="text-center">
             <div className="text-sm text-gray-500 mb-2">
               Question {currentQuestion.questionIndex + 1}
@@ -832,7 +835,7 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
         </div>
 
         {/* Scoreboard */}
-        <div className="card">
+        <div className="card" style={{ background: '#1F2937', border: '3px solid #06B6D4', boxShadow: '4px 4px 0px #000', borderRadius: '16px', color: '#F9FAFB' }}>
           <h3 className="text-lg font-semibold mb-4">Leaderboard</h3>
           <div className="space-y-2">
             {room.players
