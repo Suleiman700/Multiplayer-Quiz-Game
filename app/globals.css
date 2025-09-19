@@ -1,0 +1,338 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Retro-style animations and effects */
+@keyframes retro-slide-in {
+  0% {
+    transform: translateX(-100px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes retro-bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  60% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes pixel-glow {
+  0% {
+    box-shadow: 0 0 5px #8B5CF6, 0 0 10px #8B5CF6, 0 0 15px #8B5CF6;
+  }
+  50% {
+    box-shadow: 0 0 10px #8B5CF6, 0 0 20px #8B5CF6, 0 0 30px #8B5CF6;
+  }
+  100% {
+    box-shadow: 0 0 5px #8B5CF6, 0 0 10px #8B5CF6, 0 0 15px #8B5CF6;
+  }
+}
+
+@keyframes retro-flash {
+  0%, 100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(139, 92, 246, 0.2);
+  }
+}
+
+/* Retro card effects */
+.retro-card {
+  animation: retro-slide-in 0.4s ease-out;
+  transition: all 0.2s ease;
+  border: 2px solid #8B5CF6;
+  box-shadow: 4px 4px 0px #000000;
+}
+
+.retro-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px #000000;
+}
+
+.retro-card:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px #000000;
+}
+
+/* Retro button effects */
+.retro-button {
+  position: relative;
+  border: 2px solid;
+  box-shadow: 3px 3px 0px #000000;
+  transition: all 0.1s ease;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.retro-button:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px #000000;
+}
+
+.retro-button:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px #000000;
+}
+
+/* Retro animations */
+.retro-bounce {
+  animation: retro-bounce 2s infinite;
+}
+
+.pixel-glow {
+  animation: pixel-glow 2s infinite;
+}
+
+.retro-flash {
+  animation: retro-flash 1s infinite;
+}
+
+/* Retro gradient text - 3 colors only */
+.retro-gradient-text {
+  background: linear-gradient(45deg, #8B5CF6, #06B6D4, #F97316);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: retro-gradient-shift 2s ease infinite;
+}
+
+@keyframes retro-gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Retro scanlines effect */
+.retro-scanlines {
+  position: relative;
+}
+
+.retro-scanlines::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.1) 2px,
+    rgba(0, 0, 0, 0.1) 4px
+  );
+  pointer-events: none;
+}
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply btn bg-primary-600 text-white border-primary-600 hover:bg-primary-700 focus:ring-primary-500;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-white text-gray-700 border-gray-300 hover:bg-gray-50 focus:ring-primary-500;
+  }
+  
+  .btn-success {
+    @apply btn bg-success-600 text-white border-success-600 hover:bg-success-700 focus:ring-success-500;
+  }
+  
+  .btn-danger {
+    @apply btn bg-danger-600 text-white border-danger-600 hover:bg-danger-700 focus:ring-danger-500;
+  }
+  
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+  
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  
+  .input {
+    @apply block w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-50 disabled:cursor-not-allowed;
+  }
+  
+  .label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+  
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6;
+  }
+  
+  .card-header {
+    @apply border-b border-gray-200 pb-4 mb-4;
+  }
+  
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .badge-success {
+    @apply badge bg-success-100 text-success-800;
+  }
+  
+  .badge-warning {
+    @apply badge bg-yellow-100 text-yellow-800;
+  }
+  
+  .badge-danger {
+    @apply badge bg-danger-100 text-danger-800;
+  }
+  
+  .badge-primary {
+    @apply badge bg-primary-100 text-primary-800;
+  }
+  
+  .toast {
+    @apply fixed top-4 right-4 z-50 max-w-sm w-full bg-white rounded-lg shadow-lg border border-gray-200 p-4 animate-slide-up;
+  }
+  
+  .toast-success {
+    @apply toast border-success-200 bg-success-50;
+  }
+  
+  .toast-error {
+    @apply toast border-danger-200 bg-danger-50;
+  }
+  
+  .toast-warning {
+    @apply toast border-yellow-200 bg-yellow-50;
+  }
+  
+  .progress-bar {
+    @apply w-full bg-gray-200 rounded-full h-2 overflow-hidden;
+  }
+  
+  .progress-fill {
+    @apply h-full bg-primary-600 transition-all duration-300 ease-out;
+  }
+  
+  .timer-bar {
+    @apply progress-bar h-3;
+  }
+  
+  .timer-fill {
+    @apply progress-fill bg-gradient-to-r from-success-500 via-yellow-500 to-danger-500;
+  }
+  
+  .answer-button {
+    @apply w-full p-4 text-left border-2 border-gray-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
+  }
+  
+  .answer-button-correct {
+    @apply answer-button border-success-500 bg-success-100 text-success-900;
+  }
+  
+  .answer-button-incorrect {
+    @apply answer-button border-danger-500 bg-danger-100 text-danger-900;
+  }
+  
+  .answer-button-selected {
+    @apply answer-button border-primary-500 bg-primary-100 text-primary-900;
+  }
+  
+  .leaderboard-item {
+    @apply flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-white;
+  }
+  
+  .leaderboard-item-first {
+    @apply leaderboard-item border-yellow-300 bg-yellow-50;
+  }
+  
+  .leaderboard-item-second {
+    @apply leaderboard-item border-gray-300 bg-gray-50;
+  }
+  
+  .leaderboard-item-third {
+    @apply leaderboard-item border-orange-300 bg-orange-50;
+  }
+  
+  .connection-status {
+    @apply fixed bottom-4 right-4 z-40 px-3 py-2 rounded-lg text-sm font-medium;
+  }
+  
+  .connection-connected {
+    @apply connection-status bg-success-100 text-success-800 border border-success-200;
+  }
+  
+  .connection-disconnected {
+    @apply connection-status bg-danger-100 text-danger-800 border border-danger-200;
+  }
+  
+  .connection-reconnecting {
+    @apply connection-status bg-yellow-100 text-yellow-800 border border-yellow-200 animate-pulse;
+  }
+}
+
+@layer utilities {
+  .animate-pulse-fast {
+    animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .animate-bounce-slow {
+    animation: bounce 2s infinite;
+  }
+  
+  .text-shadow {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary-600 to-purple-600 bg-clip-text text-transparent;
+  }
+}
+
+/* Custom placeholder color for Ant Design inputs */
+.ant-input::placeholder {
+  color: #9CA3AF !important;
+}
+
+.ant-input::-webkit-input-placeholder {
+  color: #9CA3AF !important;
+}
+
+.ant-input::-moz-placeholder {
+  color: #9CA3AF !important;
+}
+
+.ant-input:-ms-input-placeholder {
+  color: #9CA3AF !important;
+}
+
+.ant-input:-moz-placeholder {
+  color: #9CA3AF !important;
+}
