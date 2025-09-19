@@ -68,6 +68,26 @@ export class SocketServer {
         }
       });
 
+      // Update avatar
+      socket.on('update_avatar', (data: { roomId: string; avatar: string }) => {
+        try {
+          const success = this.roomManager.setPlayerAvatar(data.roomId, socket.id, data.avatar);
+          if (!success) {
+            socket.emit('error', { code: 'UPDATE_AVATAR_FAILED', message: 'Failed to update avatar' });
+            return;
+          }
+
+          const room = this.roomManager.getRoom(data.roomId);
+          if (room) {
+            const player = room.players.find(p => p.socketId === socket.id);
+            this.io.to(data.roomId).emit('player_updated', { player, roomState: room });
+          }
+        } catch (error) {
+          console.error('Error updating avatar:', error);
+          socket.emit('error', { code: 'UPDATE_AVATAR_FAILED', message: 'Failed to update avatar' });
+        }
+      });
+
       socket.on('join_room', async (data: JoinRoomData) => {
         try {
           const result = this.roomManager.joinRoom(data.roomId, data.name, data.password);
@@ -238,6 +258,12 @@ export class SocketServer {
             socket.emit('answer_error', { code: result.error, message: this.getErrorMessage(result.error!) });
             return;
           }
+
+          // Notify room that this player has answered (for UI checkmarks)
+          this.io.to(data.roomId).emit('player_answered', {
+            socketId: socket.id,
+            questionIndex: data.questionIndex,
+          });
 
           // Send result to the answering player
           socket.emit('answer_received', {

@@ -191,6 +191,17 @@ export class RoomManager {
     return true;
   }
 
+  public setPlayerAvatar(roomId: string, socketId: string, avatar: string): boolean {
+    const room = rooms.get(roomId);
+    if (!room) return false;
+
+    const player = room.players.find(p => p.socketId === socketId);
+    if (!player) return false;
+
+    player.avatar = avatar;
+    return true;
+  }
+
   public canStartGame(roomId: string): boolean {
     const room = rooms.get(roomId);
     if (!room) return false;

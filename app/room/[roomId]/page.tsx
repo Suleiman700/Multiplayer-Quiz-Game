@@ -37,6 +37,7 @@ function RoomContent() {
   const [roundResults, setRoundResults] = useState<RoundResultsResponse | null>(null);
   const [gameResults, setGameResults] = useState<GameOverResponse | null>(null);
   const [showResults, setShowResults] = useState(false);
+  const [answeredThisQuestion, setAnsweredThisQuestion] = useState<Set<string>>(new Set());
 
   // Reconnect to room if we have session token but no room
   useEffect(() => {
@@ -74,11 +75,12 @@ function RoomContent() {
 
     const handleNewQuestion = (data: NewQuestionResponse) => {
       setCurrentQuestion(data);
-      // Don't set timeLeft here - let timer_tick handle it to avoid flickering
+      setTimeLeft(data.timePerQuestionSec); // Set timer immediately to avoid flicker
       setSelectedAnswer(null);
       setAnswerResult(null);
       setRoundResults(null);
       setShowResults(false);
+      setAnsweredThisQuestion(new Set());
     };
 
     const handleTimerTick = (data: { timeLeft: number }) => {
@@ -101,12 +103,21 @@ function RoomContent() {
       setGameState('finished');
     };
 
+    const handlePlayerAnswered = (data: { socketId: string; questionIndex: number }) => {
+      setAnsweredThisQuestion(prev => {
+        const next = new Set(prev);
+        next.add(data.socketId);
+        return next;
+      });
+    };
+
     socket.on('game_started', handleGameStarted);
     socket.on('new_question', handleNewQuestion);
     socket.on('timer_tick', handleTimerTick);
     socket.on('answer_received', handleAnswerReceived);
     socket.on('round_results', handleRoundResults);
     socket.on('game_over', handleGameOver);
+    socket.on('player_answered', handlePlayerAnswered);
 
     return () => {
       socket.off('game_started', handleGameStarted);
@@ -115,6 +126,7 @@ function RoomContent() {
       socket.off('answer_received', handleAnswerReceived);
       socket.off('round_results', handleRoundResults);
       socket.off('game_over', handleGameOver);
+      socket.off('player_answered', handlePlayerAnswered);
     };
   }, [socket]);
 
@@ -148,6 +160,7 @@ function RoomContent() {
         answerResult={answerResult}
         roundResults={roundResults}
         showResults={showResults}
+        answeredThisQuestion={answeredThisQuestion}
       />
     );
   }
@@ -165,6 +178,8 @@ function LobbyView({ room, player, socket }: any) {
   const [settings, setSettings] = useState<GameSettings>(room.settings);
   const [questionCounts, setQuestionCounts] = useState<Record<string, number>>({});
   const isHost = player && room.hostId === player.sessionToken;
+  const avatarOptions = ['🐱','🐶','🦊','🐼','🐵','🐸','🐯','🐰','🐨','🦁','🐻','🐹'];
+  const [selectedAvatar, setSelectedAvatar] = useState<string>(player?.avatar || avatarOptions[0]);
 
   // Load question counts when component mounts
   useEffect(() => {
@@ -433,6 +448,63 @@ function LobbyView({ room, player, socket }: any) {
                 >
                   {player?.ready ? 'NOT READY' : 'READY'}
                 </Button>
+              </div>
+
+              {/* Avatar Selection (Lobby only) */}
+              <div style={{ marginTop: '16px' }}>
+                <Text style={{
+                  color: '#F9FAFB',
+                  fontSize: '12px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontWeight: 'bold'
+                }}>
+                  Choose Avatar
+                </Text>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {avatarOptions.map(av => (
+                    <button
+                      key={av}
+                      type="button"
+                      onClick={() => setSelectedAvatar(av)}
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        border: selectedAvatar === av ? '3px solid #8B5CF6' : '2px solid #4B5563',
+                        background: '#111827',
+                        boxShadow: '2px 2px 0px #000',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '20px',
+                        color: '#fff',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {av}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ marginTop: '8px' }}>
+                  <Button
+                    onClick={() => socket && socket.emit('update_avatar', { roomId: room.roomId, avatar: selectedAvatar })}
+                    size="small"
+                    style={{
+                      background: '#8B5CF6',
+                      borderColor: '#8B5CF6',
+                      color: 'white',
+                      textTransform: 'uppercase',
+                      fontWeight: 'bold',
+                      fontSize: '12px'
+                    }}
+                    className="retro-button"
+                  >
+                    Save Avatar
+                  </Button>
+                </div>
               </div>
 
               {/* Start Game Button (Host Only) - Retro Style */}
@@ -737,7 +809,7 @@ function LobbyView({ room, player, socket }: any) {
 }
 
 // Game Component
-function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAnswer, setSelectedAnswer, answerResult, roundResults, showResults }: any) {
+function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAnswer, setSelectedAnswer, answerResult, roundResults, showResults, answeredThisQuestion }: any) {
   const handleAnswerSelect = (choiceIndex: number) => {
     if (!socket || !currentQuestion || selectedAnswer !== null) return;
     
@@ -819,6 +891,63 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
               {currentQuestion.question.text}
             </h2>
           </div>
+
+          {/* Players Avatars with answer status */}
+          {room && (
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '12px',
+              justifyContent: 'center',
+              marginBottom: '16px'
+            }}>
+              {room.players
+                .filter((p: any) => p.connected)
+                .map((p: any) => {
+                  const answered = answeredThisQuestion.has(p.socketId);
+                  const avatarLabel = p.avatar || '🙂';
+                  return (
+                    <div key={p.socketId} style={{ position: 'relative', width: '56px', textAlign: 'center' }}>
+                      <div style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '50%',
+                        background: '#111827',
+                        border: '3px solid #06B6D4',
+                        boxShadow: '3px 3px 0px #000',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '28px'
+                      }}>
+                        {avatarLabel}
+                      </div>
+                      {answered && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '-6px',
+                          right: '-6px',
+                          width: '22px',
+                          height: '22px',
+                          borderRadius: '50%',
+                          background: '#10B981',
+                          border: '2px solid #000',
+                          boxShadow: '2px 2px 0px #000',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '14px',
+                          color: '#fff'
+                        }}>
+                          ✓
+                        </div>
+                      )}
+                      <div style={{ fontSize: '10px', marginTop: '4px', color: '#D1D5DB', maxWidth: '56px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
 
           {/* Answer Choices */}
           <div className="grid md:grid-cols-2 gap-4">

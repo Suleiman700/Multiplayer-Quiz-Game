@@ -6,6 +6,7 @@ export interface Player {
   connected: boolean;
   lastSeen: number;
   sessionToken?: string;
+  avatar?: string;
 }
 
 export interface GameSettings {
