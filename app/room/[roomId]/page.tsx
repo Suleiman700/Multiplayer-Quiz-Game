@@ -203,7 +203,7 @@ function LobbyView({ room, player, socket }: any) {
   };
 
   const connectedPlayers = room.players.filter((p: any) => p.connected);
-  const allReady = connectedPlayers.length >= 2 && connectedPlayers.every((p: any) => p.ready);
+  const allReady = (connectedPlayers.length === 1 && connectedPlayers[0].ready) || (connectedPlayers.length >= 2 && connectedPlayers.every((p: any) => p.ready));
 
   const [availableCategories, setAvailableCategories] = useState<Array<{id: string, name: string, questionCount?: number}>>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -773,17 +773,17 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
             ></div>
           </div>
           <div className="text-center mt-2">
-            <span className="text-2xl font-bold text-gray-900">{timeLeft}s</span>
+            <span className="text-2xl font-bold text-gray-200">{timeLeft}s</span>
           </div>
         </div>
 
         {/* Question */}
         <div className="card mb-6" style={{ background: '#1F2937', border: '3px solid #8B5CF6', boxShadow: '4px 4px 0px #000', borderRadius: '16px', color: '#F9FAFB' }}>
           <div className="text-center">
-            <div className="text-sm text-gray-500 mb-2">
+            <div className="text-sm text-gray-200 mb-2">
               Question {currentQuestion.questionIndex + 1}
             </div>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+            <h2 className="text-2xl font-semibold mb-6">
               {currentQuestion.question.text}
             </h2>
           </div>
@@ -811,7 +811,7 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
                   className={buttonClass}
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center font-semibold">
+                    <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center font-semibold">
                       {String.fromCharCode(65 + index)}
                     </div>
                     <span>{choice}</span>
@@ -837,7 +837,7 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
         {/* Scoreboard */}
         <div className="card" style={{ background: '#1F2937', border: '3px solid #06B6D4', boxShadow: '4px 4px 0px #000', borderRadius: '16px', color: '#F9FAFB' }}>
           <h3 className="text-lg font-semibold mb-4">Leaderboard</h3>
-          <div className="space-y-2">
+          <div className="space-y-2 text-gray-800">
             {room.players
               .filter((p: any) => p.connected)
               .sort((a: any, b: any) => b.score - a.score)

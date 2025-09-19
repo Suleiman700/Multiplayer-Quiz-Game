@@ -196,6 +196,10 @@ export class RoomManager {
     if (!room) return false;
 
     const connectedPlayers = room.players.filter(p => p.connected);
+    if (connectedPlayers.length === 1) {
+      // Allow solo play without requiring ready state
+      return true;
+    }
     return connectedPlayers.length >= 2 && connectedPlayers.every(p => p.ready);
   }
 

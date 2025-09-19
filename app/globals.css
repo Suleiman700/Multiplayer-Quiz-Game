@@ -250,7 +250,7 @@
   }
   
   .answer-button {
-    @apply w-full p-4 text-left border-2 border-gray-200 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
+    @apply w-full p-4 text-left border-2 border-gray-200 rounded-lg hover:border-primary-300 hover:bg-primary-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
   }
   
   .answer-button-correct {
@@ -270,7 +270,7 @@
   }
   
   .leaderboard-item-first {
-    @apply leaderboard-item border-yellow-300 bg-yellow-50;
+    @apply leaderboard-item border-yellow-300 bg-yellow-100;
   }
   
   .leaderboard-item-second {
