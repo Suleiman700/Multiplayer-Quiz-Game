@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Button, Card, Select, Radio, Checkbox, Typography, Space, Row, Col, Badge, Alert } from 'antd';
+import { Button, Card, Select, Radio, Checkbox, Typography, Space, Row, Col, Badge, Alert, Popconfirm } from 'antd';
 import { ArrowLeftOutlined, UserOutlined, SettingOutlined, PlayCircleOutlined, CheckCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { SocketProvider, useSocket } from '@/lib/socket-client';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
@@ -921,6 +921,7 @@ function LobbyView({ room, player, socket }: any) {
 
 // Game Component
 function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAnswer, setSelectedAnswer, answerResult, roundResults, showResults, answeredThisQuestion, timerFreshQuestion }: any) {
+  const isHost = player && room.hostId === player.sessionToken;
   // Detect if a string contains RTL characters (Arabic, Hebrew, Syriac, etc.)
   const isRTLText = (text: string) => /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\u0700-\u074F\u07C0-\u07FF\uFB50-\uFDFF\uFE70-\uFEFF]/u.test(text);
   const handleAnswerSelect = (choiceIndex: number) => {
@@ -949,6 +950,22 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
   return (
     <div className="min-h-screen p-4">
       <div className="max-w-4xl mx-auto">
+        {/* Host Controls */}
+        {isHost && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+            <Popconfirm
+              title="End game and return to lobby?"
+              description="This will reset the game and scores for everyone."
+              okText="Yes, end game"
+              cancelText="Cancel"
+              onConfirm={() => socket && socket.emit('play_again', { roomId: room.roomId })}
+            >
+              <Button danger size="small" className="retro-button">
+                End Game
+              </Button>
+            </Popconfirm>
+          </div>
+        )}
         {/* Timer */}
         <div className="mb-8">
           <div
