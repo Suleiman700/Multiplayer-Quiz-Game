@@ -114,7 +114,11 @@ export class SocketServer {
 
           // Reset room state
           room.game = undefined;
-          room.players.forEach(p => { p.ready = false; p.score = 0; });
+          room.players.forEach(p => {
+            p.score = 0;
+            // Bots should default to ready in the lobby; humans become not ready
+            p.ready = p.isBot ? true : false;
+          });
 
           // Inform clients
           this.io.to(data.roomId).emit('game_reset', { roomState: room });
