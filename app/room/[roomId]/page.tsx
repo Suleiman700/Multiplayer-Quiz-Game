@@ -810,6 +810,8 @@ function LobbyView({ room, player, socket }: any) {
 
 // Game Component
 function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAnswer, setSelectedAnswer, answerResult, roundResults, showResults, answeredThisQuestion }: any) {
+  // Detect if a string contains RTL characters (Arabic, Hebrew, Syriac, etc.)
+  const isRTLText = (text: string) => /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\u0700-\u074F\u07C0-\u07FF\uFB50-\uFDFF\uFE70-\uFEFF]/u.test(text);
   const handleAnswerSelect = (choiceIndex: number) => {
     if (!socket || !currentQuestion || selectedAnswer !== null) return;
     
@@ -887,19 +889,72 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
             <div className="text-sm text-gray-200 mb-2">
               Question {currentQuestion.questionIndex + 1}
             </div>
-            <h2 className="text-2xl font-semibold mb-6">
+            <h2 className="text-2xl font-semibold mb-6" dir="auto">
               {currentQuestion.question.text}
             </h2>
           </div>
 
-          {/* Players Avatars with answer status */}
-          {room && (
+          {/* Answer Choices */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {currentQuestion.question.choices.map((choice: string, index: number) => {
+              let buttonClass = 'answer-button';
+              
+              if (showResults && roundResults) {
+                if (index === roundResults.correctChoiceIndex) {
+                  buttonClass = 'answer-button-correct';
+                } else if (index === selectedAnswer) {
+                  buttonClass = 'answer-button-incorrect';
+                }
+              } else if (selectedAnswer === index) {
+                buttonClass = 'answer-button-selected';
+              }
+
+              return (
+                <button
+                  key={index}
+                  onClick={() => handleAnswerSelect(index)}
+                  disabled={selectedAnswer !== null || timeLeft <= 0}
+                  className={buttonClass}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center font-semibold">
+                      {String.fromCharCode(65 + index)}
+                    </div>
+                    <span dir={isRTLText(choice) ? 'rtl' : 'ltr'}>{choice}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Answer Result */}
+          {answerResult && (
+            <div className="mt-6 text-center">
+              <div className={`inline-flex items-center px-4 py-2 rounded-lg ${
+                answerResult.isCorrect ? 'bg-success-100 text-success-800' : 'bg-danger-100 text-danger-800'
+              }`}>
+                {answerResult.isCorrect ? '✓ Correct!' : '✗ Incorrect'}
+                <span className="ml-2 font-semibold">+{answerResult.pointsAwarded} points</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Players Avatars with answer status - Under Question, Above Leaderboard */}
+        {room && (
+          <div style={{
+            background: '#1F2937',
+            border: '3px solid #06B6D4',
+            boxShadow: '4px 4px 0px #000',
+            borderRadius: '16px',
+            padding: '12px',
+            marginBottom: '16px'
+          }}>
             <div style={{
               display: 'flex',
               flexWrap: 'wrap',
               gap: '12px',
-              justifyContent: 'center',
-              marginBottom: '16px'
+              justifyContent: 'center'
             }}>
               {room.players
                 .filter((p: any) => p.connected)
@@ -913,12 +968,13 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
                         height: '56px',
                         borderRadius: '50%',
                         background: '#111827',
-                        border: '3px solid #06B6D4',
+                        border: '3px solid #8B5CF6',
                         boxShadow: '3px 3px 0px #000',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '28px'
+                        fontSize: '28px',
+                        color: '#fff'
                       }}>
                         {avatarLabel}
                       </div>
@@ -947,53 +1003,8 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
                   );
                 })}
             </div>
-          )}
-
-          {/* Answer Choices */}
-          <div className="grid md:grid-cols-2 gap-4">
-            {currentQuestion.question.choices.map((choice: string, index: number) => {
-              let buttonClass = 'answer-button';
-              
-              if (showResults && roundResults) {
-                if (index === roundResults.correctChoiceIndex) {
-                  buttonClass = 'answer-button-correct';
-                } else if (index === selectedAnswer) {
-                  buttonClass = 'answer-button-incorrect';
-                }
-              } else if (selectedAnswer === index) {
-                buttonClass = 'answer-button-selected';
-              }
-
-              return (
-                <button
-                  key={index}
-                  onClick={() => handleAnswerSelect(index)}
-                  disabled={selectedAnswer !== null || timeLeft <= 0}
-                  className={buttonClass}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center font-semibold">
-                      {String.fromCharCode(65 + index)}
-                    </div>
-                    <span>{choice}</span>
-                  </div>
-                </button>
-              );
-            })}
           </div>
-
-          {/* Answer Result */}
-          {answerResult && (
-            <div className="mt-6 text-center">
-              <div className={`inline-flex items-center px-4 py-2 rounded-lg ${
-                answerResult.isCorrect ? 'bg-success-100 text-success-800' : 'bg-danger-100 text-danger-800'
-              }`}>
-                {answerResult.isCorrect ? '✓ Correct!' : '✗ Incorrect'}
-                <span className="ml-2 font-semibold">+{answerResult.pointsAwarded} points</span>
-              </div>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Scoreboard */}
         <div className="card" style={{ background: '#1F2937', border: '3px solid #06B6D4', boxShadow: '4px 4px 0px #000', borderRadius: '16px', color: '#F9FAFB' }}>
