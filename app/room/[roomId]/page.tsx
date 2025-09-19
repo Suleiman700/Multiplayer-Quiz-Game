@@ -651,215 +651,278 @@ function LobbyView({ room, player, socket }: any) {
                 )}
               </div>
 
-              <Row gutter={[24, 24]}>
-                <Col xs={24} md={12}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                      <Text style={{
-                        color: '#F9FAFB',
-                        fontSize: '14px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        fontWeight: 'bold'
-                      }}>
-                        CATEGORIES
-                      </Text>
-                      {isHost && (
-                        <Space size="small">
-                          <Button
-                            onClick={handleSelectAllCategories}
-                            size="small"
-                            style={{
+              {isHost ? (
+                <Row gutter={[24, 24]}>
+                  <Col xs={24} md={12}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                        <Text style={{
+                          color: '#F9FAFB',
+                          fontSize: '14px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '1px',
+                          fontWeight: 'bold'
+                        }}>
+                          CATEGORIES
+                        </Text>
+                        {isHost && (
+                          <Space size="small">
+                            <Button
+                              onClick={handleSelectAllCategories}
+                              size="small"
+                              style={{
+                                background: '#374151',
+                                borderColor: '#6B7280',
+                                color: '#F9FAFB',
+                                fontSize: '10px',
+                                textTransform: 'uppercase'
+                              }}
+                              className="retro-button"
+                            >
+                              SELECT ALL
+                            </Button>
+                            <Button
+                              onClick={handleDeselectAllCategories}
+                              size="small"
+                              style={{
+                                background: '#374151',
+                                borderColor: '#6B7280',
+                                color: '#F9FAFB',
+                                fontSize: '10px',
+                                textTransform: 'uppercase'
+                              }}
+                              className="retro-button"
+                            >
+                              DESELECT ALL
+                            </Button>
+                          </Space>
+                        )}
+                      </div>
+                      <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                          {availableCategories.map((category) => (
+                            <div key={category.id} style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '8px',
                               background: '#374151',
-                              borderColor: '#6B7280',
-                              color: '#F9FAFB',
-                              fontSize: '10px',
-                              textTransform: 'uppercase'
-                            }}
-                            className="retro-button"
-                          >
-                            SELECT ALL
-                          </Button>
-                          <Button
-                            onClick={handleDeselectAllCategories}
-                            size="small"
-                            style={{
-                              background: '#374151',
-                              borderColor: '#6B7280',
-                              color: '#F9FAFB',
-                              fontSize: '10px',
-                              textTransform: 'uppercase'
-                            }}
-                            className="retro-button"
-                          >
-                            DESELECT ALL
-                          </Button>
+                              border: '1px solid #4B5563'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Checkbox
+                                  checked={settings.category.includes(category.id)}
+                                  onChange={(e) => {
+                                    if (!isHost) return;
+                                    const newCategories = e.target.checked
+                                      ? [...settings.category, category.id]
+                                      : settings.category.filter(c => c !== category.id);
+                                    handleUpdateSettings({ category: newCategories });
+                                  }}
+                                  disabled={!isHost}
+                                  style={{ color: '#8B5CF6' }}
+                                />
+                                <Text style={{
+                                  color: '#F9FAFB',
+                                  fontSize: '12px',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.5px',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {category.name}
+                                </Text>
+                              </div>
+                              <Badge style={{
+                                background: '#4B5563',
+                                color: '#D1D5DB',
+                                border: '1px solid #6B7280',
+                                fontSize: '10px'
+                              }}>
+                                {questionCounts[category.id] || 0} QUESTIONS
+                              </Badge>
+                            </div>
+                          ))}
                         </Space>
-                      )}
+                      </div>
+                      <Alert
+                        message={`TOTAL AVAILABLE QUESTIONS: ${getTotalSelectedQuestions()}`}
+                        type="info"
+                        style={{
+                          marginTop: '12px',
+                          background: '#1F2937',
+                          border: '2px solid #06B6D4',
+                          color: '#F9FAFB'
+                        }}
+                        className="retro-alert"
+                      />
                     </div>
-                    <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                      <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                        {availableCategories.map((category) => (
-                          <div key={category.id} style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '8px',
-                            background: '#374151',
-                            border: '1px solid #4B5563'
-                          }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <Checkbox
-                                checked={settings.category.includes(category.id)}
-                                onChange={(e) => {
-                                  if (!isHost) return;
-                                  const newCategories = e.target.checked
-                                    ? [...settings.category, category.id]
-                                    : settings.category.filter(c => c !== category.id);
-                                  handleUpdateSettings({ category: newCategories });
-                                }}
-                                disabled={!isHost}
-                                style={{ color: '#8B5CF6' }}
-                              />
+                  </Col>
+
+                  <Col xs={24} md={12}>
+                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                      <div>
+                        <Text style={{
+                          color: '#F9FAFB',
+                          fontSize: '14px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '1px',
+                          fontWeight: 'bold',
+                          display: 'block',
+                          marginBottom: '8px'
+                        }}>
+                          QUESTIONS
+                        </Text>
+                        <Select
+                          value={settings.numQuestions}
+                          onChange={(value) => handleUpdateSettings({ numQuestions: value })}
+                          disabled={!isHost}
+                          style={{
+                            width: '100%'
+                          }}
+                          className="retro-select"
+                        >
+                          <Option value={5}>5 QUESTIONS</Option>
+                          <Option value={10}>10 QUESTIONS</Option>
+                          <Option value={15}>15 QUESTIONS</Option>
+                          <Option value={20}>20 QUESTIONS</Option>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Text style={{
+                          color: '#F9FAFB',
+                          fontSize: '14px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '1px',
+                          fontWeight: 'bold',
+                          display: 'block',
+                          marginBottom: '8px'
+                        }}>
+                          TIME PER QUESTION
+                        </Text>
+                        <Select
+                          value={settings.timePerQuestionSec}
+                          onChange={(value) => handleUpdateSettings({ timePerQuestionSec: value })}
+                          disabled={!isHost}
+                          style={{
+                            width: '100%'
+                          }}
+                          className="retro-select"
+                        >
+                          <Option value={10}>10 SECONDS</Option>
+                          <Option value={15}>15 SECONDS</Option>
+                          <Option value={20}>20 SECONDS</Option>
+                          <Option value={30}>30 SECONDS</Option>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Text style={{
+                          color: '#F9FAFB',
+                          fontSize: '14px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '1px',
+                          fontWeight: 'bold',
+                          display: 'block',
+                          marginBottom: '8px'
+                        }}>
+                          SCORING
+                        </Text>
+                        <Radio.Group
+                          value={settings.scoring}
+                          onChange={(e) => handleUpdateSettings({ scoring: e.target.value })}
+                          disabled={!isHost}
+                          style={{ width: '100%' }}
+                        >
+                          <Space direction="vertical">
+                            <Radio value="base" style={{ color: '#F9FAFB' }}>
                               <Text style={{
                                 color: '#F9FAFB',
                                 fontSize: '12px',
                                 textTransform: 'uppercase',
-                                letterSpacing: '0.5px',
-                                fontWeight: 'bold'
+                                letterSpacing: '0.5px'
                               }}>
-                                {category.name}
+                                BASE SCORING
                               </Text>
-                            </div>
-                            <Badge style={{
-                              background: '#4B5563',
-                              color: '#D1D5DB',
-                              border: '1px solid #6B7280',
-                              fontSize: '10px'
-                            }}>
-                              {questionCounts[category.id] || 0} QUESTIONS
-                            </Badge>
-                          </div>
-                        ))}
-                      </Space>
+                            </Radio>
+                            <Radio value="timeBonus" style={{ color: '#F9FAFB' }}>
+                              <Text style={{
+                                color: '#F9FAFB',
+                                fontSize: '12px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px'
+                              }}>
+                                TIME BONUS
+                              </Text>
+                            </Radio>
+                          </Space>
+                        </Radio.Group>
+                      </div>
+                    </Space>
+                  </Col>
+                </Row>
+              ) : (
+                <div>
+                  <div style={{ marginBottom: '16px' }}>
+                    <Text style={{
+                      color: '#F9FAFB',
+                      fontSize: '14px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      fontWeight: 'bold',
+                      display: 'block',
+                      marginBottom: '8px'
+                    }}>
+                      CATEGORIES
+                    </Text>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {(settings.category.length > 0 ? settings.category : []).map((catId: string) => {
+                        const cat = availableCategories.find(c => c.id === catId);
+                        const label = cat ? cat.name : catId;
+                        return (
+                          <span key={catId} style={{
+                            background: '#374151',
+                            border: '2px solid #4B5563',
+                            color: '#D1D5DB',
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            borderRadius: '8px',
+                            boxShadow: '2px 2px 0px #000'
+                          }}>{label}</span>
+                        );
+                      })}
+                      {settings.category.length === 0 && (
+                        <span style={{ color: '#9CA3AF', fontSize: '12px' }}>No categories selected</span>
+                      )}
                     </div>
-                    <Alert
-                      message={`TOTAL AVAILABLE QUESTIONS: ${getTotalSelectedQuestions()}`}
-                      type="info"
-                      style={{
-                        marginTop: '12px',
-                        background: '#1F2937',
-                        border: '2px solid #06B6D4',
-                        color: '#F9FAFB'
-                      }}
-                      className="retro-alert"
-                    />
+                    <div style={{ marginTop: '8px' }}>
+                      <Badge style={{
+                        background: '#4B5563',
+                        color: '#D1D5DB',
+                        border: '1px solid #6B7280',
+                        fontSize: '10px'
+                      }}>
+                        {getTotalSelectedQuestions()} QUESTIONS IN POOL
+                      </Badge>
+                    </div>
                   </div>
-                </Col>
 
-                <Col xs={24} md={12}>
-                  <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                    <div>
-                      <Text style={{
-                        color: '#F9FAFB',
-                        fontSize: '14px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        fontWeight: 'bold',
-                        display: 'block',
-                        marginBottom: '8px'
-                      }}>
-                        NUMBER OF QUESTIONS
-                      </Text>
-                      <Select
-                        value={settings.numQuestions}
-                        onChange={(value) => handleUpdateSettings({ numQuestions: value })}
-                        disabled={!isHost}
-                        style={{
-                          width: '100%'
-                        }}
-                        className="retro-select"
-                      >
-                        <Option value={5}>5 QUESTIONS</Option>
-                        <Option value={10}>10 QUESTIONS</Option>
-                        <Option value={15}>15 QUESTIONS</Option>
-                        <Option value={20}>20 QUESTIONS</Option>
-                      </Select>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '12px' }}>
+                    <div className="card" style={{ background: '#111827', border: '3px solid #06B6D4', boxShadow: '3px 3px 0px #000' }}>
+                      <div className="text-sm text-gray-300">Questions</div>
+                      <div className="text-2xl font-bold text-primary-500">{settings.numQuestions}</div>
                     </div>
-
-                    <div>
-                      <Text style={{
-                        color: '#F9FAFB',
-                        fontSize: '14px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        fontWeight: 'bold',
-                        display: 'block',
-                        marginBottom: '8px'
-                      }}>
-                        TIME PER QUESTION
-                      </Text>
-                      <Select
-                        value={settings.timePerQuestionSec}
-                        onChange={(value) => handleUpdateSettings({ timePerQuestionSec: value })}
-                        disabled={!isHost}
-                        style={{
-                          width: '100%'
-                        }}
-                        className="retro-select"
-                      >
-                        <Option value={10}>10 SECONDS</Option>
-                        <Option value={15}>15 SECONDS</Option>
-                        <Option value={20}>20 SECONDS</Option>
-                        <Option value={30}>30 SECONDS</Option>
-                      </Select>
+                    <div className="card" style={{ background: '#111827', border: '3px solid #06B6D4', boxShadow: '3px 3px 0px #000' }}>
+                      <div className="text-sm text-gray-300">Timer</div>
+                      <div className="text-2xl font-bold text-primary-500">{settings.timePerQuestionSec}s</div>
                     </div>
-
-                    <div>
-                      <Text style={{
-                        color: '#F9FAFB',
-                        fontSize: '14px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        fontWeight: 'bold',
-                        display: 'block',
-                        marginBottom: '8px'
-                      }}>
-                        SCORING
-                      </Text>
-                      <Radio.Group
-                        value={settings.scoring}
-                        onChange={(e) => handleUpdateSettings({ scoring: e.target.value })}
-                        disabled={!isHost}
-                        style={{ width: '100%' }}
-                      >
-                        <Space direction="vertical">
-                          <Radio value="base" style={{ color: '#F9FAFB' }}>
-                            <Text style={{
-                              color: '#F9FAFB',
-                              fontSize: '12px',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.5px'
-                            }}>
-                              BASE SCORING
-                            </Text>
-                          </Radio>
-                          <Radio value="timeBonus" style={{ color: '#F9FAFB' }}>
-                            <Text style={{
-                              color: '#F9FAFB',
-                              fontSize: '12px',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.5px'
-                            }}>
-                              TIME BONUS
-                            </Text>
-                          </Radio>
-                        </Space>
-                      </Radio.Group>
+                    <div className="card" style={{ background: '#111827', border: '3px solid #06B6D4', boxShadow: '3px 3px 0px #000' }}>
+                      <div className="text-sm text-gray-300">Scoring</div>
+                      <div className="text-2xl font-bold text-primary-500">{settings.scoring === 'base' ? 'Base' : 'Time Bonus'}</div>
                     </div>
-                  </Space>
-                </Col>
-              </Row>
+                  </div>
+                </div>
+              )}
             </Card>
           </Col>
         </Row>
