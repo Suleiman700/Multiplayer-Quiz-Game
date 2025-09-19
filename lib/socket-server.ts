@@ -96,6 +96,14 @@ export class SocketServer {
             this.timerTickIntervals.delete(data.roomId);
           }
 
+          // Remove disconnected players before resetting to lobby
+          const wasHostPresent = room.players.some(p => p.sessionToken === room.hostId && p.connected);
+          room.players = room.players.filter(p => p.connected);
+          // Ensure hostId is valid after pruning
+          if (!room.players.some(p => p.sessionToken === room.hostId) && room.players.length > 0) {
+            room.hostId = room.players[0].sessionToken!;
+          }
+
           // Reset room state
           room.game = undefined;
           room.players.forEach(p => { p.ready = false; p.score = 0; });
@@ -481,6 +489,11 @@ export class SocketServer {
     // Also emit updated room state so clients receive game.status = 'finished'
     const room = this.roomManager.getRoom(roomId);
     if (room) {
+      // Prune disconnected players at end of game
+      room.players = room.players.filter(p => p.connected);
+      if (!room.players.some(p => p.sessionToken === room.hostId) && room.players.length > 0) {
+        room.hostId = room.players[0].sessionToken!;
+      }
       this.io.to(roomId).emit('room_updated', { roomState: room });
     }
 
