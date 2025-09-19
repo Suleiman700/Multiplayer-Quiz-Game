@@ -161,6 +161,18 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         const updatedPlayer = data.roomState.players.find((p: Player) => p.sessionToken === tokenToUse);
         if (updatedPlayer) {
           setPlayer(updatedPlayer);
+        } else {
+          // Fallback: if this client is no longer in the room list, treat as removed and exit
+          try {
+            sessionStorage.removeItem('quiz_session_token');
+            sessionStorage.removeItem('quiz_room_id');
+          } catch {}
+          setPlayer(null);
+          setSessionToken(null);
+          try { newSocket.disconnect(); } catch {}
+          if (typeof window !== 'undefined') {
+            window.location.href = '/?removed=1';
+          }
         }
       }
     });
@@ -178,6 +190,17 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       });
     });
 
+    // Remove kicked players from local room state immediately
+    newSocket.on('player_kicked', (data: { socketId: string }) => {
+      setRoom((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          players: prev.players.filter((p: Player) => p.socketId !== data.socketId),
+        };
+      });
+    });
+
     newSocket.on('player_reconnected', (data: { player: Player }) => {
       setRoom((prev) => {
         if (!prev) return prev;
@@ -188,6 +211,24 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
           ),
         };
       });
+    });
+
+    // If this client is kicked by the host, clear session and redirect
+    newSocket.on('kicked', (_data: { roomId: string; reason?: string }) => {
+      try {
+        sessionStorage.removeItem('quiz_session_token');
+        sessionStorage.removeItem('quiz_room_id');
+      } catch {}
+      setPlayer(null);
+      setSessionToken(null);
+      setRoom(null);
+      try {
+        newSocket.disconnect();
+      } catch {}
+      // Navigate to home
+      if (typeof window !== 'undefined') {
+        window.location.href = '/?kicked=1';
+      }
     });
 
     newSocket.on('settings_updated', (data) => {

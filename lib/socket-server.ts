@@ -388,6 +388,80 @@ export class SocketServer {
         this.handlePlayerLeave(socket.id, data.roomId);
       });
 
+      // Host can kick a player from the room (lobby or during game)
+      socket.on('kick_player', (data: { roomId: string; targetSessionToken?: string; targetSocketId?: string }) => {
+        try {
+          console.log('[kick_player] request from', socket.id, 'data:', data);
+          const room = this.roomManager.getRoom(data.roomId);
+          if (!room) {
+            socket.emit('error', { code: 'ROOM_NOT_FOUND', message: 'Room not found' });
+            return;
+          }
+
+          const requester = room.players.find(p => p.socketId === socket.id);
+          if (!requester || room.hostId !== requester.sessionToken) {
+            socket.emit('error', { code: 'NOT_HOST', message: 'Only host can kick players' });
+            return;
+          }
+
+          const target = room.players.find(p => p.sessionToken === data.targetSessionToken) 
+            || room.players.find(p => p.socketId === data.targetSocketId);
+          if (!target) {
+            socket.emit('error', { code: 'PLAYER_NOT_FOUND', message: 'Player not found' });
+            return;
+          }
+
+          // Remove from room's players list
+          const latestSocketId = target.socketId;
+          let removed = false;
+          if (latestSocketId) {
+            removed = this.roomManager.removePlayer(data.roomId, latestSocketId);
+          }
+          if (!removed) {
+            // Fallback: remove by sessionToken
+            const roomForRemoval = this.roomManager.getRoom(data.roomId);
+            if (roomForRemoval) {
+              const idx = roomForRemoval.players.findIndex(p => p.sessionToken === target.sessionToken);
+              if (idx !== -1) {
+                const wasHost = roomForRemoval.hostId === roomForRemoval.players[idx].sessionToken;
+                roomForRemoval.players.splice(idx, 1);
+                if (wasHost && roomForRemoval.players.length > 0) {
+                  roomForRemoval.hostId = roomForRemoval.players[0].sessionToken!;
+                }
+                removed = true;
+                console.log('[kick_player] removed by sessionToken fallback for', target.name);
+              }
+            }
+          }
+          if (!removed) {
+            socket.emit('error', { code: 'PLAYER_NOT_FOUND', message: 'Failed to remove player' });
+            return;
+          }
+
+          // Notify kicked player and force leave/disconnect
+          if (latestSocketId) {
+            // Emit to that specific socket id
+            this.io.to(latestSocketId).emit('kicked', { roomId: data.roomId, reason: 'Removed by host' });
+            const targetSocket = this.io.sockets.sockets.get(latestSocketId);
+            if (targetSocket) {
+              try { targetSocket.leave(data.roomId); } catch {}
+              try { targetSocket.disconnect(true); } catch {}
+            }
+          }
+
+          // Broadcast updates to the room
+          this.io.to(data.roomId).emit('player_kicked', { socketId: latestSocketId || target.socketId });
+          const updatedRoom = this.roomManager.getRoom(data.roomId);
+          if (updatedRoom) {
+            this.io.to(data.roomId).emit('room_updated', { roomState: updatedRoom });
+          }
+          console.log('[kick_player] success. Kicked', target.name, 'from room', data.roomId);
+        } catch (error) {
+          console.error('Error kicking player:', error);
+          socket.emit('error', { code: 'KICK_FAILED', message: 'Failed to kick player' });
+        }
+      });
+
       socket.on('heartbeat', (data: { roomId: string }) => {
         const room = this.roomManager.getRoom(data.roomId);
         if (room) {

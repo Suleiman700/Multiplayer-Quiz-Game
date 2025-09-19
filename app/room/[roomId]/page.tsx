@@ -482,15 +482,28 @@ function LobbyView({ room, player, socket }: any) {
                         </Badge>
                       )}
                     </div>
-                    <Text style={{
-                      color: p.ready ? '#10B981' : '#9CA3AF',
-                      fontSize: '12px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      fontWeight: 'bold'
-                    }}>
-                      {p.ready ? 'READY' : 'NOT READY'}
-                    </Text>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Text style={{
+                        color: p.ready ? '#10B981' : '#9CA3AF',
+                        fontSize: '12px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        fontWeight: 'bold'
+                      }}>
+                        {p.ready ? 'READY' : 'NOT READY'}
+                      </Text>
+                      {isHost && room.hostId !== p.sessionToken && (
+                        <Popconfirm
+                          title="Kick this player?"
+                          description={`Remove ${p.name} from the room.`}
+                          okText="Kick"
+                          cancelText="Cancel"
+                          onConfirm={() => socket && socket.emit('kick_player', { roomId: room.roomId, targetSessionToken: p.sessionToken, targetSocketId: p.socketId })}
+                        >
+                          <Button danger size="small" className="retro-button">Kick</Button>
+                        </Popconfirm>
+                      )}
+                    </div>
                   </div>
                 ))}
               </Space>
@@ -1159,7 +1172,20 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
                     <span className="font-bold text-lg">#{index + 1}</span>
                     <span className="font-medium">{p.name}</span>
                   </div>
-                  <span className="font-bold text-lg">{p.score}</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-bold text-lg">{p.score}</span>
+                    {isHost && room.hostId !== p.sessionToken && (
+                      <Popconfirm
+                        title="Kick this player?"
+                        description={`Remove ${p.name} from the room.`}
+                        okText="Kick"
+                        cancelText="Cancel"
+                        onConfirm={() => socket && socket.emit('kick_player', { roomId: room.roomId, targetSessionToken: p.sessionToken, targetSocketId: p.socketId })}
+                      >
+                        <Button danger size="small" className="retro-button">Kick</Button>
+                      </Popconfirm>
+                    )}
+                  </div>
                 </div>
               ))}
           </div>
