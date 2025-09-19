@@ -86,9 +86,18 @@ function RoomContent() {
       setTimerFreshQuestion(true);
     };
 
-    const handleTimerTick = (data: { timeLeft: number }) => {
-      // First tick after a new question: disable the fresh flag to re-enable animation
-      if (timerFreshQuestion) setTimerFreshQuestion(false);
+    const handleTimerTick = (data: { timeLeft: number; questionIndex?: number }) => {
+      // Ignore late ticks from a previous question
+      if (data.questionIndex !== undefined && currentQuestion && data.questionIndex !== currentQuestion.questionIndex) {
+        return;
+      }
+      if (timerFreshQuestion) {
+        // Apply the first decrement with transition disabled
+        setTimeLeft(data.timeLeft);
+        // Flip the flag AFTER this render so subsequent ticks animate
+        setTimeout(() => setTimerFreshQuestion(false), 0);
+        return;
+      }
       setTimeLeft(data.timeLeft);
     };
 
@@ -141,7 +150,7 @@ function RoomContent() {
       socket.off('game_over', handleGameOver);
       socket.off('player_answered', handlePlayerAnswered);
     };
-  }, [socket]);
+  }, [socket, currentQuestion, timerFreshQuestion, player]);
 
   if (!room) {
     return (
@@ -159,12 +168,10 @@ function RoomContent() {
   }
 
   if (gameState === 'playing') {
-    // Always get latest room/player from context for real-time updates
-    const { room: liveRoom, player: livePlayer } = useSocket();
     return (
       <GameView
-        room={liveRoom}
-        player={livePlayer}
+        room={room}
+        player={player}
         socket={socket}
         currentQuestion={currentQuestion}
         timeLeft={timeLeft}

@@ -17,6 +17,7 @@ export class SocketServer {
   private roomManager: RoomManager;
   private gameLogic: GameLogic;
   private questionTimers: Map<string, NodeJS.Timeout> = new Map();
+  private timerTickIntervals: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(httpServer: HTTPServer) {
     this.io = new SocketIOServer(httpServer, {
@@ -322,6 +323,13 @@ export class SocketServer {
     // Set timer for automatic question end
     const room = this.roomManager.getRoom(roomId);
     if (room) {
+      // Clear any previous tick interval for safety
+      const existingTick = this.timerTickIntervals.get(roomId);
+      if (existingTick) {
+        clearInterval(existingTick);
+        this.timerTickIntervals.delete(roomId);
+      }
+
       const timer = setTimeout(() => {
         this.endQuestion(roomId);
       }, room.settings.timePerQuestionSec * 1000);
@@ -329,11 +337,11 @@ export class SocketServer {
       this.questionTimers.set(roomId, timer);
 
       // Send timer ticks (optional - for better UX)
-      this.startTimerTicks(roomId, room.settings.timePerQuestionSec);
+      this.startTimerTicks(roomId, room.settings.timePerQuestionSec, room.game!.currentQuestionIndex);
     }
   }
 
-  private startTimerTicks(roomId: string, totalSeconds: number): void {
+  private startTimerTicks(roomId: string, totalSeconds: number, questionIndex: number): void {
     let remainingTime = totalSeconds;
     
     const tickInterval = setInterval(() => {
@@ -341,12 +349,17 @@ export class SocketServer {
       this.io.to(roomId).emit('timer_tick', {
         timeLeft: remainingTime,
         totalTime: totalSeconds,
+        questionIndex,
       });
 
       if (remainingTime <= 0) {
         clearInterval(tickInterval);
+        this.timerTickIntervals.delete(roomId);
       }
     }, 1000);
+
+    // Store interval so it can be cleared on next question or end
+    this.timerTickIntervals.set(roomId, tickInterval);
   }
 
   private endQuestion(roomId: string): void {
@@ -355,6 +368,13 @@ export class SocketServer {
     if (timer) {
       clearTimeout(timer);
       this.questionTimers.delete(roomId);
+    }
+
+    // Clear tick interval
+    const tick = this.timerTickIntervals.get(roomId);
+    if (tick) {
+      clearInterval(tick);
+      this.timerTickIntervals.delete(roomId);
     }
 
     // Get round results

@@ -56,8 +56,20 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     setSocket(newSocket);
     setConnecting(true);
 
-    // Restore session token from localStorage
-    const savedSessionToken = localStorage.getItem('quiz_session_token');
+    // Migrate any legacy localStorage tokens to sessionStorage for per-tab isolation
+    const legacyToken = localStorage.getItem('quiz_session_token');
+    const legacyRoomId = localStorage.getItem('quiz_room_id');
+    if (legacyToken) {
+      sessionStorage.setItem('quiz_session_token', legacyToken);
+      localStorage.removeItem('quiz_session_token');
+    }
+    if (legacyRoomId) {
+      sessionStorage.setItem('quiz_room_id', legacyRoomId);
+      localStorage.removeItem('quiz_room_id');
+    }
+
+    // Restore session token from sessionStorage
+    const savedSessionToken = sessionStorage.getItem('quiz_session_token');
     if (savedSessionToken) {
       setSessionToken(savedSessionToken);
     }
@@ -87,9 +99,9 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     newSocket.on('room_created', (data) => {
       setRoom(data.roomState);
       setSessionToken(data.hostToken);
-      // Save session token to localStorage for persistence
-      localStorage.setItem('quiz_session_token', data.hostToken);
-      localStorage.setItem('quiz_room_id', data.roomState.roomId);
+      // Save session token to sessionStorage for per-tab persistence
+      sessionStorage.setItem('quiz_session_token', data.hostToken);
+      sessionStorage.setItem('quiz_room_id', data.roomState.roomId);
       const hostPlayer = data.roomState.players.find((p: Player) => p.sessionToken === data.hostToken);
       setPlayer(hostPlayer || null);
       setError(null);
@@ -98,9 +110,9 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     newSocket.on('joined_room', (data) => {
       setRoom(data.roomState);
       setSessionToken(data.sessionToken);
-      // Save session token to localStorage for persistence
-      localStorage.setItem('quiz_session_token', data.sessionToken);
-      localStorage.setItem('quiz_room_id', data.roomState.roomId);
+      // Save session token to sessionStorage for per-tab persistence
+      sessionStorage.setItem('quiz_session_token', data.sessionToken);
+      sessionStorage.setItem('quiz_room_id', data.roomState.roomId);
       const joinedPlayer = data.roomState.players.find((p: Player) => p.sessionToken === data.sessionToken);
       setPlayer(joinedPlayer || null);
       setError(null);
@@ -108,20 +120,27 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
     newSocket.on('player_joined', (data) => {
       setRoom(data.roomState);
+      const storedToken = sessionStorage.getItem('quiz_session_token');
+      const tokenToUse = sessionToken || storedToken;
+      if (tokenToUse) {
+        const updatedPlayer = data.roomState.players.find((p: Player) => p.sessionToken === tokenToUse);
+        if (updatedPlayer) setPlayer(updatedPlayer);
+      }
     });
 
     newSocket.on('player_left', (data) => {
-      if (room) {
-        const updatedPlayers = room.players.filter((p: Player) => p.socketId !== data.socketId);
-        setRoom({ ...room, players: updatedPlayers });
-      }
+      // Functional update to avoid stale room reference
+      setRoom((prev) => {
+        if (!prev) return prev;
+        return { ...prev, players: prev.players.filter((p: Player) => p.socketId !== data.socketId) };
+      });
     });
 
     newSocket.on('player_updated', (data) => {
       console.log('Received player_updated event:', data);
       setRoom(data.roomState);
       // Use sessionToken or stored token to identify the current player reliably
-      const storedToken = localStorage.getItem('quiz_session_token');
+      const storedToken = sessionStorage.getItem('quiz_session_token');
       const tokenToUse = sessionToken || storedToken;
       if (tokenToUse) {
         const updatedPlayer = data.roomState.players.find((p: Player) => p.sessionToken === tokenToUse);
@@ -135,19 +154,32 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     newSocket.on('room_updated', (data) => {
       console.log('Received room_updated event with new scores:', data);
       setRoom(data.roomState);
-      // Update current player if their data changed
-      if (player && sessionToken) {
-        const updatedPlayer = data.roomState.players.find((p: Player) => p.sessionToken === sessionToken);
+      // Identify current player using token from context or storage (avoid stale closure)
+      const storedToken = sessionStorage.getItem('quiz_session_token');
+      const tokenToUse = sessionToken || storedToken;
+      if (tokenToUse) {
+        const updatedPlayer = data.roomState.players.find((p: Player) => p.sessionToken === tokenToUse);
         if (updatedPlayer) {
           setPlayer(updatedPlayer);
         }
       }
     });
 
+    // Update room when a player disconnects (mark as not connected)
+    newSocket.on('player_disconnected', (data: { player: Player }) => {
+      setRoom((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          players: prev.players.map((p: Player) =>
+            p.socketId === data.player.socketId ? { ...p, connected: false, lastSeen: Date.now() } : p
+          ),
+        };
+      });
+    });
+
     newSocket.on('settings_updated', (data) => {
-      if (room) {
-        setRoom({ ...room, settings: data.settings });
-      }
+      setRoom((prev) => (prev ? { ...prev, settings: data.settings } : prev));
     });
 
     newSocket.on('reconnected_room', (data) => {
@@ -155,7 +187,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       setRoom(data.roomState);
       
       // Use stored session token if context sessionToken is not available yet
-      const storedToken = localStorage.getItem('quiz_session_token');
+      const storedToken = sessionStorage.getItem('quiz_session_token');
       const tokenToUse = sessionToken || storedToken;
       
       const reconnectedPlayer = data.roomState.players.find((p: Player) => p.sessionToken === tokenToUse);
@@ -172,12 +204,11 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     });
 
     newSocket.on('host_changed', (data) => {
-      if (room) {
-        const newHost = room.players.find((p: Player) => p.socketId === data.newHostId);
-        if (newHost) {
-          setRoom({ ...room, hostId: newHost.sessionToken! });
-        }
-      }
+      setRoom((prev) => {
+        if (!prev) return prev;
+        const newHost = prev.players.find((p: Player) => p.socketId === data.newHostId);
+        return newHost ? { ...prev, hostId: newHost.sessionToken! } : prev;
+      });
     });
 
     // Error handlers
@@ -214,16 +245,16 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     }
   }, [connected, sessionToken, room, socket]);
 
-  // Store session token in localStorage
+  // Store session token in sessionStorage
   useEffect(() => {
     if (sessionToken) {
-      localStorage.setItem('quiz_session_token', sessionToken);
+      sessionStorage.setItem('quiz_session_token', sessionToken);
     }
   }, [sessionToken]);
 
-  // Restore session token from localStorage
+  // Restore session token from sessionStorage (fallback if context is empty)
   useEffect(() => {
-    const storedToken = localStorage.getItem('quiz_session_token');
+    const storedToken = sessionStorage.getItem('quiz_session_token');
     if (storedToken && !sessionToken) {
       setSessionToken(storedToken);
     }
