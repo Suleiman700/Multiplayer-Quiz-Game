@@ -348,6 +348,19 @@
   }
 }
 
+/* Global switch to disable animated hover/click effects when .no-anim is present */
+.no-anim .retro-card {
+  animation: none !important;
+  transition: none !important;
+}
+
+.no-anim .retro-card:hover,
+.no-anim .retro-card:active {
+  transform: none !important;
+  /* keep a consistent base shadow */
+  box-shadow: 4px 4px 0px #000000 !important;
+}
+
 /* Custom placeholder color for Ant Design inputs */
 .ant-input::placeholder {
   color: #9CA3AF !important;

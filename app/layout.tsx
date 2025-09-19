@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import { AntdRegistry } from '@ant-design/nextjs-registry'
 import { ConfigProvider } from 'antd'
 import './globals.css'
+import { uiConfig } from '@/lib/config'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -112,7 +113,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AntdRegistry>
           <ConfigProvider theme={retroTheme}>
-            <div className="min-h-screen bg-gray-900" style={{ 
+            <div className={`${!uiConfig.animatedEffects ? 'no-anim' : ''} min-h-screen bg-gray-900`} style={{ 
               background: 'linear-gradient(135deg, #111827 0%, #1F2937 50%, #374151 100%)',
               fontFamily: '"Courier New", "Monaco", monospace'
             }}>
