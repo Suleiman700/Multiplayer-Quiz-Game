@@ -296,6 +296,38 @@
   .connection-reconnecting {
     @apply connection-status bg-yellow-100 text-yellow-800 border border-yellow-200 animate-pulse;
   }
+
+  /* Animated connection dots indicator for disconnected avatars */
+  .connection-dots {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    background: #DC2626; /* red */
+    border: 2px solid #000;
+    border-radius: 9999px;
+    box-shadow: 2px 2px 0px #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .connection-dots span {
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    margin: 0 1px;
+    background: #fff;
+    border-radius: 9999px;
+    animation: dots-blink 1s infinite ease-in-out;
+  }
+
+  .connection-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .connection-dots span:nth-child(3) { animation-delay: 0.3s; }
+}
+
+@keyframes dots-blink {
+  0%, 80%, 100% { opacity: 0.2; transform: translateY(0px); }
+  40% { opacity: 1; transform: translateY(-1px); }
 }
 
 @layer utilities {

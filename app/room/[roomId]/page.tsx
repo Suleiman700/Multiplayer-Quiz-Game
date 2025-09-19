@@ -40,6 +40,13 @@ function RoomContent() {
   const [answeredThisQuestion, setAnsweredThisQuestion] = useState<Set<string>>(new Set());
   const [timerFreshQuestion, setTimerFreshQuestion] = useState(false);
 
+  // Auto-clear the fresh flag on the next event loop tick so subsequent ticks animate
+  useEffect(() => {
+    if (!timerFreshQuestion) return;
+    const id = setTimeout(() => setTimerFreshQuestion(false), 0);
+    return () => clearTimeout(id);
+  }, [timerFreshQuestion]);
+
   // Reconnect to room if we have session token but no room
   useEffect(() => {
     if (socket && connected && sessionToken && !room && roomId) {
@@ -51,8 +58,8 @@ function RoomContent() {
   // Auto-reconnect when page loads if we have stored session data
   useEffect(() => {
     if (socket && connected && !room && !sessionToken && roomId) {
-      const storedToken = localStorage.getItem('quiz_session_token');
-      const storedRoomId = localStorage.getItem('quiz_room_id');
+      const storedToken = sessionStorage.getItem('quiz_session_token');
+      const storedRoomId = sessionStorage.getItem('quiz_room_id');
       
       if (storedToken && storedRoomId === roomId) {
         console.log('Found stored session, attempting reconnect:', roomId);
@@ -61,7 +68,7 @@ function RoomContent() {
     }
   }, [socket, connected, room, sessionToken, roomId]);
 
-  // Socket event listeners for game flow
+  // Socket event listeners for game flow (attach once per socket)
   useEffect(() => {
     if (!socket) return;
 
@@ -75,6 +82,7 @@ function RoomContent() {
     };
 
     const handleNewQuestion = (data: NewQuestionResponse) => {
+      setGameState('playing');
       setCurrentQuestion(data);
       setTimeLeft(data.timePerQuestionSec); // Set timer immediately to avoid flicker
       setSelectedAnswer(null);
@@ -87,17 +95,7 @@ function RoomContent() {
     };
 
     const handleTimerTick = (data: { timeLeft: number; questionIndex?: number }) => {
-      // Ignore late ticks from a previous question
-      if (data.questionIndex !== undefined && currentQuestion && data.questionIndex !== currentQuestion.questionIndex) {
-        return;
-      }
-      if (timerFreshQuestion) {
-        // Apply the first decrement with transition disabled
-        setTimeLeft(data.timeLeft);
-        // Flip the flag AFTER this render so subsequent ticks animate
-        setTimeout(() => setTimerFreshQuestion(false), 0);
-        return;
-      }
+      // We already prevent flicker by disabling transition via timerFreshQuestion flag
       setTimeLeft(data.timeLeft);
     };
 
@@ -140,6 +138,21 @@ function RoomContent() {
     socket.on('round_results', handleRoundResults);
     socket.on('game_over', handleGameOver);
     socket.on('player_answered', handlePlayerAnswered);
+    const handleGameReset = (data: any) => {
+      // Reset UI to lobby on server reset
+      setGameResults(null);
+      setCurrentQuestion(null);
+      setSelectedAnswer(null);
+      setAnswerResult(null);
+      setRoundResults(null);
+      setShowResults(false);
+      setAnsweredThisQuestion(new Set());
+      setGameState('lobby');
+    };
+    socket.on('game_reset', handleGameReset);
+
+    // Proactively request current question snapshot in case we missed initial emits during reconnect
+    socket.emit('get_current_question', { roomId });
 
     return () => {
       socket.off('game_started', handleGameStarted);
@@ -149,8 +162,16 @@ function RoomContent() {
       socket.off('round_results', handleRoundResults);
       socket.off('game_over', handleGameOver);
       socket.off('player_answered', handlePlayerAnswered);
+      socket.off('game_reset', handleGameReset);
     };
-  }, [socket, currentQuestion, timerFreshQuestion, player]);
+  }, [socket]);
+
+  // If room indicates a running game (after reconnect), switch UI to playing immediately
+  useEffect(() => {
+    if (room && (room as any).game && (room as any).game.status === 'running') {
+      setGameState('playing');
+    }
+  }, [room]);
 
   if (!room) {
     return (
@@ -161,6 +182,32 @@ function RoomContent() {
         </div>
       </div>
     );
+  }
+
+  // Prefer server status if available (helps after refresh)
+  const serverStatus = (room as any)?.game?.status as 'waiting' | 'running' | 'finished' | undefined;
+
+  if (serverStatus === 'running') {
+    return (
+      <GameView
+        room={room}
+        player={player}
+        socket={socket}
+        currentQuestion={currentQuestion}
+        timeLeft={timeLeft}
+        selectedAnswer={selectedAnswer}
+        setSelectedAnswer={setSelectedAnswer}
+        answerResult={answerResult}
+        roundResults={roundResults}
+        showResults={showResults}
+        answeredThisQuestion={answeredThisQuestion}
+        timerFreshQuestion={timerFreshQuestion}
+      />
+    );
+  }
+
+  if (serverStatus === 'finished') {
+    return <ResultsView room={room} gameResults={gameResults} onPlayAgain={() => socket && room && socket.emit('play_again', { roomId: room.roomId })} />;
   }
 
   if (gameState === 'lobby') {
@@ -986,7 +1033,6 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
               justifyContent: 'center'
             }}>
               {room.players
-                .filter((p: any) => p.connected)
                 .map((p: any) => {
                   const answered = answeredThisQuestion.has(p.socketId);
                   const avatarLabel = p.avatar || '🙂';
@@ -1025,6 +1071,15 @@ function GameView({ room, player, socket, currentQuestion, timeLeft, selectedAns
                           color: '#fff'
                         }}>
                           ✓
+                        </div>
+                      )}
+                      {!p.connected && (
+                        <div style={{ position: 'absolute', top: '-6px', right: '-6px' }}>
+                          <div className="connection-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                          </div>
                         </div>
                       )}
                       <div style={{ fontSize: '10px', marginTop: '4px', color: '#D1D5DB', maxWidth: '56px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>

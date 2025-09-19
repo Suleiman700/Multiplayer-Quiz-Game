@@ -69,6 +69,65 @@ export class SocketServer {
         }
       });
 
+      // Reset game to lobby so players can play again without leaving the room
+      socket.on('play_again', (data: { roomId: string }) => {
+        try {
+          const room = this.roomManager.getRoom(data.roomId);
+          if (!room) {
+            socket.emit('error', { code: 'ROOM_NOT_FOUND', message: 'Room not found' });
+            return;
+          }
+
+          const player = room.players.find(p => p.socketId === socket.id);
+          if (!player || room.hostId !== player.sessionToken) {
+            socket.emit('error', { code: 'NOT_HOST', message: 'Only host can reset game' });
+            return;
+          }
+
+          // Clear timers if any
+          const questionTimer = this.questionTimers.get(data.roomId);
+          if (questionTimer) {
+            clearTimeout(questionTimer);
+            this.questionTimers.delete(data.roomId);
+          }
+          const tickInterval = this.timerTickIntervals.get(data.roomId);
+          if (tickInterval) {
+            clearInterval(tickInterval);
+            this.timerTickIntervals.delete(data.roomId);
+          }
+
+          // Reset room state
+          room.game = undefined;
+          room.players.forEach(p => { p.ready = false; p.score = 0; });
+
+          // Inform clients
+          this.io.to(data.roomId).emit('game_reset', { roomState: room });
+          this.io.to(data.roomId).emit('room_updated', { roomState: room });
+        } catch (error) {
+          console.error('Error resetting game:', error);
+          socket.emit('error', { code: 'RESET_FAILED', message: 'Failed to reset game' });
+        }
+      });
+
+      // Allow clients to request the current question (useful after refresh)
+      socket.on('get_current_question', (data: { roomId: string }) => {
+        const room = this.roomManager.getRoom(data.roomId);
+        if (!room || !room.game || room.game.status !== 'running') return;
+        const questionData = this.gameLogic.getCurrentQuestion(data.roomId);
+        if (questionData) {
+          socket.emit('new_question', questionData);
+          const totalSeconds = room.settings.timePerQuestionSec;
+          const start = room.game.questionStartTime || room.game.startTime || Date.now();
+          const elapsedSeconds = Math.floor((Date.now() - start) / 1000);
+          const remainingTime = Math.max(0, totalSeconds - elapsedSeconds);
+          socket.emit('timer_tick', {
+            timeLeft: remainingTime,
+            totalTime: totalSeconds,
+            questionIndex: room.game.currentQuestionIndex,
+          });
+        }
+      });
+
       // Update avatar
       socket.on('update_avatar', (data: { roomId: string; avatar: string }) => {
         try {
@@ -141,6 +200,25 @@ export class SocketServer {
           await socket.join(data.roomId);
           socket.emit('reconnected_room', { roomState: room });
           socket.to(data.roomId).emit('player_reconnected', { player });
+          // Ensure everyone gets the latest room state (e.g., avatar, socketId, connected flag)
+          this.io.to(data.roomId).emit('room_updated', { roomState: room });
+
+          // If a game is running, send the current question and a timer snapshot to this socket only
+          if (room.game && room.game.status === 'running') {
+            const questionData = this.gameLogic.getCurrentQuestion(data.roomId);
+            if (questionData) {
+              socket.emit('new_question', questionData);
+              const totalSeconds = room.settings.timePerQuestionSec;
+              const start = room.game.questionStartTime || room.game.startTime || Date.now();
+              const elapsedSeconds = Math.floor((Date.now() - start) / 1000);
+              const remainingTime = Math.max(0, totalSeconds - elapsedSeconds);
+              socket.emit('timer_tick', {
+                timeLeft: remainingTime,
+                totalTime: totalSeconds,
+                questionIndex: room.game.currentQuestionIndex,
+              });
+            }
+          }
 
           console.log(`Player ${player.name} reconnected to room ${data.roomId}`);
         } catch (error) {
@@ -417,18 +495,15 @@ export class SocketServer {
   }
 
   private handlePlayerLeave(socketId: string, roomId: string): void {
-    const removed = this.roomManager.removePlayer(roomId, socketId);
-    if (removed) {
-      this.io.to(roomId).emit('player_left', { socketId });
-      
-      // Check if host changed
-      const room = this.roomManager.getRoom(roomId);
-      if (room && room.players.length > 0) {
-        const newHost = room.players.find(p => p.sessionToken === room.hostId);
-        if (newHost) {
-          this.io.to(roomId).emit('host_changed', { newHostId: newHost.socketId });
-        }
+    // Mark as disconnected but keep in room so UI can show avatar with connection indicator
+    this.roomManager.disconnectPlayer(roomId, socketId);
+    const room = this.roomManager.getRoom(roomId);
+    if (room) {
+      const player = room.players.find(p => p.socketId === socketId);
+      if (player) {
+        this.io.to(roomId).emit('player_disconnected', { player });
       }
+      // Host remains unchanged; if you want to transfer host on leave, implement it separately
     }
   }
 

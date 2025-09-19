@@ -178,6 +178,18 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       });
     });
 
+    newSocket.on('player_reconnected', (data: { player: Player }) => {
+      setRoom((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          players: prev.players.map((p: Player) =>
+            p.sessionToken === data.player.sessionToken ? { ...p, connected: true, socketId: data.player.socketId } : p
+          ),
+        };
+      });
+    });
+
     newSocket.on('settings_updated', (data) => {
       setRoom((prev) => (prev ? { ...prev, settings: data.settings } : prev));
     });
@@ -200,6 +212,14 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         setSessionToken(storedToken);
       }
       
+      // Ensure room id is stored for subsequent reconnects
+      sessionStorage.setItem('quiz_room_id', data.roomState.roomId);
+
+      // If a game is running, ask for the current question immediately (post-refresh resume)
+      if ((data.roomState as any).game && (data.roomState as any).game.status === 'running') {
+        newSocket.emit('get_current_question', { roomId: data.roomState.roomId });
+      }
+
       setError(null);
     });
 
