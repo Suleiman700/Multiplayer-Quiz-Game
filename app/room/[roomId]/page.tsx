@@ -231,7 +231,7 @@ function LobbyView({ room, player, socket }: any) {
   const [settings, setSettings] = useState<GameSettings>(room.settings);
   const [questionCounts, setQuestionCounts] = useState<Record<string, number>>({});
   const isHost = player && room.hostId === player.sessionToken;
-  const avatarOptions = ['🐱','🐶','🦊','🐼','🐵','🐸','🐯','🐰','🐨','🦁','🐻','🐹'];
+  const avatarOptions = ['🐱','🐶','🦊','🐼','🐵','🐸','🐯','🐰','🐨','🦁','🐻'];
   const [selectedAvatar, setSelectedAvatar] = useState<string>(player?.avatar || avatarOptions[0]);
 
   // Keep local selection in sync with server-updated player data
@@ -528,7 +528,12 @@ function LobbyView({ room, player, socket }: any) {
                     <button
                       key={av}
                       type="button"
-                      onClick={() => setSelectedAvatar(av)}
+                      onClick={() => {
+                        setSelectedAvatar(av);
+                        if (socket) {
+                          socket.emit('update_avatar', { roomId: room.roomId, avatar: av });
+                        }
+                      }}
                       style={{
                         width: '40px',
                         height: '40px',
@@ -547,23 +552,6 @@ function LobbyView({ room, player, socket }: any) {
                       {av}
                     </button>
                   ))}
-                </div>
-                <div style={{ marginTop: '8px' }}>
-                  <Button
-                    onClick={() => socket && socket.emit('update_avatar', { roomId: room.roomId, avatar: selectedAvatar })}
-                    size="small"
-                    style={{
-                      background: '#8B5CF6',
-                      borderColor: '#8B5CF6',
-                      color: 'white',
-                      textTransform: 'uppercase',
-                      fontWeight: 'bold',
-                      fontSize: '12px'
-                    }}
-                    className="retro-button"
-                  >
-                    Save Avatar
-                  </Button>
                 </div>
               </div>
 
