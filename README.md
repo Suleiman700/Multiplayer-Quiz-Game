@@ -20,6 +20,14 @@ A modern, real-time multiplayer quiz game built with Next.js, Socket.IO, Tailwin
 - **Real-time Communication**: Socket.IO for bidirectional communication
 - **Styling**: Tailwind CSS with custom components and animations
 
+<p float="left">
+  <img src="/images/chrome_B6VA9QXx9R.png" width="100" />
+  <img src="/images/chrome_FpdEc6SRXG.png" width="100" /> 
+  <img src="/images/chrome_MdOpsb8Xg9.png" width="100" />
+  <img src="/images/chrome_QdHTBvjqdZ.png" width="100" />
+  <img src="/images/chrome_qy642dvuse.png" width="100" />
+</p>
+
 ## 📋 Prerequisites
 
 Before you begin, ensure you have the following installed:
@@ -113,6 +121,71 @@ The application will be available at `http://localhost:3000`
 1. **Lobby**: Players join and mark themselves as ready
 2. **Game**: Answer questions within the time limit
 3. **Results**: View final leaderboard and game statistics
+
+## 🛡️ Admin Dashboard
+
+The project includes an Admin Dashboard to manage questions, categories, and view stats.
+
+- Access URL: `http://localhost:3000/admin`
+- Purpose: Seed and curate the question bank, manage categories, and inspect basic statistics.
+
+### Features
+- **Questions Management** (`/admin/questions`)
+  - List, search, filter by category, and paginate questions
+  - Create new questions (`/admin/questions/create`)
+  - Edit existing questions (`/admin/questions/edit/[id]`)
+  - Delete questions
+  - Bulk import questions (`/admin/questions/import`)
+- **Categories Management** (`/admin/categories`)
+  - View all categories and question counts
+  - Navigate to filtered questions or create new ones in a category
+  - Delete a category (removes all questions in that category)
+- **Dashboard Stats** (`/admin`)
+  - Totals for questions and categories
+  - Questions per category breakdown
+
+### Bulk Import Formats
+
+- JSON (array of question objects):
+
+```json
+[
+  {
+    "category": "science",
+    "question_text": "What is the chemical symbol for water?",
+    "choice_a": "H2O",
+    "choice_b": "CO2",
+    "choice_c": "NaCl",
+    "choice_d": "O2",
+    "correct_choice": "A"
+  }
+]
+```
+
+- CSV (headers required):
+
+```csv
+category,question_text,choice_a,choice_b,choice_c,choice_d,correct_choice
+science,"What is the chemical symbol for water?",H2O,CO2,NaCl,O2,A
+```
+
+You can import via the UI at `/admin/questions/import` or via the API endpoint described below.
+
+### Admin API Endpoints
+
+- `GET /api/admin/questions?page=1&limit=20&category=<id>`
+- `POST /api/admin/questions` (create question)
+- `GET /api/admin/questions/:id`
+- `PUT /api/admin/questions/:id`
+- `DELETE /api/admin/questions/:id`
+- `GET /api/admin/categories`
+- `DELETE /api/admin/categories?category=<id>`
+- `POST /api/admin/import` (body: `{ questions: Question[] }`)
+- `GET /api/admin/stats`
+
+### Important Security Note
+
+The admin routes in this starter are not authenticated by default and are intended for local development. Before deploying to production, you must add authentication/authorization and restrict access (e.g., NextAuth, middleware with JWT, or protecting behind a reverse proxy/VPN). Also configure allowed CORS origins in `lib/socket-server.ts` or related server files as needed.
 
 ## 🏗 Project Structure
 
