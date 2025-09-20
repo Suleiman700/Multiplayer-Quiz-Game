@@ -22,9 +22,9 @@ A modern, real-time multiplayer quiz game built with Next.js, Socket.IO, Tailwin
 
 <p float="left">
   <img src="/images/chrome_QdHTBvjqdZ.png" width="400" />
+  <img src="/images/chrome_MdOpsb8Xg9.png" width="400" />
   <img src="/images/chrome_FpdEc6SRXG.png" width="400" /> 
   <img src="/images/chrome_B6VA9QXx9R.png" width="400" />
-  <img src="/images/chrome_MdOpsb8Xg9.png" width="400" />
   <img src="/images/chrome_qy642dvuse.png" width="400" />
 </p>
 
